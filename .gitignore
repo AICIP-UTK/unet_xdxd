@@ -1,0 +1,16 @@
+.bash_history
+.bashrc
+.cache/
+.conda/
+.keras/
+.nv/
+.profile
+.theano/
+.v13.log
+.v16.log
+.v17.log
+.v9s.log
+.viminfo
+__pycache__/
+osmdata/
+visualizer-2.0.zip
