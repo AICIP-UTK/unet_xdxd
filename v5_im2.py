@@ -280,7 +280,6 @@ def image_mask_resized_from_summary_2(df, image_id):
                     cv2.line(mask, last_point, point, (255, 255, 255), thickness=args.width)
                 last_point = point
 
-            
     mask = skimage.transform.resize(mask, (INPUT_SIZE, INPUT_SIZE))
     return mask
 
@@ -350,7 +349,7 @@ def prep_image_mask(area_id, is_valtrain=True):
     logger.info("Prepare image container: {}".format(fn_mask))
     with tb.open_file(fn_mask, 'w') as f:
         for image_id in tqdm.tqdm(df.index, total=len(df)):
-            im_mask = image_mask_resized_from_summary(df_summary, image_id)
+            im_mask = image_mask_resized_from_summary_2(df_summary, image_id)
             atom = tb.Atom.from_dtype(im_mask.dtype)
             filters = tb.Filters(complib='blosc', complevel=9)
             ds = f.create_carray(f.root, image_id, atom, im_mask.shape,
@@ -657,7 +656,7 @@ def prep_test_imagelist(area_id, datapath):
 def get_train_image_path_from_imageid(image_id, datapath, mul=False):
     prefix = image_id_to_prefix(image_id)
     if mul:
-IMAGE_PATH.format(
+        return FMT_TRAIN_MSPEC_IMAGE_PATH.format(
             datapath=datapath, prefix=prefix, image_id=image_id)
     else:
         return FMT_TRAIN_RGB_IMAGE_PATH.format(
