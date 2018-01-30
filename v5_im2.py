@@ -186,47 +186,74 @@ def calc_mul_multiband_cut_threshold(area_id, datapath):
 
 def __calc_mul_multiband_cut_threshold(area_id, datapath):
     prefix = area_id_to_prefix(area_id)
-    band_values = {k: [] for k in range(8)}
     band_cut_th = {k: dict(max=0, min=0) for k in range(8)}
 
     image_id_list = pd.read_csv(FMT_VALTRAIN_IMAGELIST_PATH.format(
         prefix=prefix)).ImageId.tolist()
-    for image_id in tqdm.tqdm(image_id_list[:500]):
-        image_fn = get_train_image_path_from_imageid(
-            image_id, datapath, mul=True)
-        with rasterio.open(image_fn, 'r') as f:
-            values = f.read().astype(np.float32)
-            for i_chan in range(8):
-                values_ = values[i_chan].ravel().tolist()
-                values_ = np.array(
-                    [v for v in values_ if v != 0]
-                )  # Remove sensored mask
-                band_values[i_chan].append(values_)
-
-    image_id_list = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(
+    image_id_list2 = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(
         prefix=prefix)).ImageId.tolist()
-    for image_id in tqdm.tqdm(image_id_list[:500]):
-        image_fn = get_train_image_path_from_imageid(
-            image_id, datapath, mul=True)
-        with rasterio.open(image_fn, 'r') as f:
-            values = f.read().astype(np.float32)
-            for i_chan in range(8):
-                values_ = values[i_chan].ravel().tolist()
-                values_ = np.array(
-                    [v for v in values_ if v != 0]
-                )  # Remove sensored mask
-                band_values[i_chan].append(values_)
+    image_id_list.append(image_id_list2)
 
-    logger.info("Calc percentile point ...")
     for i_chan in range(8):
-	logger.info("   Channel {}".format(i_chan))
-        band_values[i_chan] = np.concatenate(
-            band_values[i_chan]).ravel()
+        logger.info("Reading band {} of the dataset..".format(i_chan))
+        band_values = []
+        for image_id in tqdm.tqdm(image_id_list[:500]):
+            image_fn = get_train_image_path_from_imageid(
+                image_id, datapath, mul=True)
+            with rasterio.open(image_fn, 'r') as f:
+                values = f.read().astype(np.float32)
+                values_ = values[i_chan].ravel().tolist()
+                values_ = np.array([v for v in values_ if v != 0]) # Remove sensored mask
+                band_values.append(values_)
+
+        logger.info("Calc percentile point for band {}".format(i_chan))
+        band_values = np.concatenate(band_values).ravel()
         band_cut_th[i_chan]['max'] = scipy.percentile(
-            band_values[i_chan], 98)
+            band_values, 98)
         band_cut_th[i_chan]['min'] = scipy.percentile(
-            band_values[i_chan], 2, overwrite_input=True)
+            band_values, 2, overwrite_input=True)
     return band_cut_th
+
+
+
+#    image_id_list = pd.read_csv(FMT_VALTRAIN_IMAGELIST_PATH.format(
+#        prefix=prefix)).ImageId.tolist()
+#    for image_id in tqdm.tqdm(image_id_list[:500]):
+#        image_fn = get_train_image_path_from_imageid(
+#            image_id, datapath, mul=True)
+#        with rasterio.open(image_fn, 'r') as f:
+#            values = f.read().astype(np.float32)
+#            for i_chan in range(8):
+#                values_ = values[i_chan].ravel().tolist()
+#                values_ = np.array(
+#                    [v for v in values_ if v != 0]
+#                )  # Remove sensored mask
+#                band_values[i_chan].append(values_)
+#
+#    image_id_list = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(
+#        prefix=prefix)).ImageId.tolist()
+#    for image_id in tqdm.tqdm(image_id_list[:500]):
+#        image_fn = get_train_image_path_from_imageid(
+#            image_id, datapath, mul=True)
+#        with rasterio.open(image_fn, 'r') as f:
+#            values = f.read().astype(np.float32)
+#            for i_chan in range(8):
+#                values_ = values[i_chan].ravel().tolist()
+#                values_ = np.array(
+#                    [v for v in values_ if v != 0]
+#                )  # Remove sensored mask
+#                band_values[i_chan].append(values_)
+#
+#    logger.info("Calc percentile point ...")
+#    for i_chan in range(8):
+#	logger.info("   Channel {}".format(i_chan))
+#        band_values[i_chan] = np.concatenate(
+#            band_values[i_chan]).ravel()
+#        band_cut_th[i_chan]['max'] = scipy.percentile(
+#            band_values[i_chan], 98)
+#        band_cut_th[i_chan]['min'] = scipy.percentile(
+#            band_values[i_chan], 2, overwrite_input=True)
+#    return band_cut_th
 
 
 def image_mask_resized_from_summary(df, image_id):
