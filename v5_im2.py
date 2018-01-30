@@ -25,6 +25,7 @@ import rasterio
 import shapely.wkt
 import cv2
 
+
 MODEL_NAME = 'v5'
 ORIGINAL_SIZE = 1300
 INPUT_SIZE = 256
