@@ -5,7 +5,7 @@ export THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32
 
 echo ">>> CLEAN UP"
 echo rm -rf /data/working
-rm -rf /data/working && mkdir -p /data/working
+#rm -rf /data/working && mkdir -p /data/working
 
 source activate py35 && for train_path in $@; do
     echo ">>> PREPROCESSING STEP ---------------------------"

@@ -23,7 +23,7 @@ import numpy as np
 import skimage.transform
 import rasterio
 import shapely.wkt
-
+import cv2
 
 MODEL_NAME = 'v5'
 ORIGINAL_SIZE = 1300
@@ -129,45 +129,35 @@ def calc_rgb_multiband_cut_threshold(area_id, datapath):
 
 def __calc_rgb_multiband_cut_threshold(area_id, datapath):
     prefix = area_id_to_prefix(area_id)
-    band_values = {k: [] for k in range(3)}
     band_cut_th = {k: dict(max=0, min=0) for k in range(3)}
 
     image_id_list = pd.read_csv(FMT_VALTRAIN_IMAGELIST_PATH.format(
         prefix=prefix)).ImageId.tolist()
-    for image_id in tqdm.tqdm(image_id_list[:500]):
-        image_fn = get_train_image_path_from_imageid(image_id, datapath)
-        with rasterio.open(image_fn, 'r') as f:
-            values = f.read().astype(np.float32)
-            for i_chan in range(3):
-                values_ = values[i_chan].ravel().tolist()
-                values_ = np.array(
-                    [v for v in values_ if v != 0]
-                )  # Remove sensored mask
-                band_values[i_chan].append(values_)
-
-    image_id_list = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(
+    image_id_list2 = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(
         prefix=prefix)).ImageId.tolist()
-    for image_id in tqdm.tqdm(image_id_list[:500]):
-        image_fn = get_train_image_path_from_imageid(image_id, datapath)
-        with rasterio.open(image_fn, 'r') as f:
-            values = f.read().astype(np.float32)
-            for i_chan in range(3):
-                values_ = values[i_chan].ravel().tolist()
-                values_ = np.array(
-                    [v for v in values_ if v != 0]
-                )  # Remove sensored mask
-                band_values[i_chan].append(values_)
+    image_id_list.append(image_id_list2)
 
-    logger.info("Calc percentile point ...")
     for i_chan in range(3):
-        band_values[i_chan] = np.concatenate(
-            band_values[i_chan]).ravel()
+        logger.info("Reading band {} of the dataset..".format(i_chan))
+        band_values = []
+        for image_id in tqdm.tqdm(image_id_list[:500]):
+            image_fn = get_train_image_path_from_imageid(
+                image_id, datapath, mul=True)
+            with rasterio.open(image_fn, 'r') as f:
+                values = f.read().astype(np.float32)
+                values_ = values[i_chan].ravel().tolist()
+                values_ = np.array([v for v in values_ if v != 0]) # Remove sensored mask
+                band_values.append(values_)
+
+        logger.info("Calc percentile point for band {}".format(i_chan))
+        band_values = np.concatenate(band_values).ravel()
         band_cut_th[i_chan]['max'] = scipy.percentile(
-            band_values[i_chan], 98)
+            band_values, 98)
         band_cut_th[i_chan]['min'] = scipy.percentile(
-            band_values[i_chan], 2)
+            band_values, 2, overwrite_input=True)
     return band_cut_th
 
+    
 
 def calc_mul_multiband_cut_threshold(area_id, datapath):
     rows = []
@@ -260,7 +250,7 @@ def __calc_mul_multiband_cut_threshold(area_id, datapath):
 def image_mask_resized_from_summary_2(df, image_id):
     # Edited by mrnabati
     mask = np.zeros((1300, 1300))
-
+    thick = 10
     if len(df[df.ImageId == image_id]) == 0:
         raise RuntimeError("ImageId not found on summaryData: {}".format(
             image_id))
@@ -277,7 +267,7 @@ def image_mask_resized_from_summary_2(df, image_id):
                 point = (x, y)
                 if i is not 0:
                     # Draw a line from last point to point
-                    cv2.line(mask, last_point, point, (255, 255, 255), thickness=args.width)
+                    cv2.line(mask, last_point, point, (255, 255, 255), thickness=thick)
                 last_point = point
 
     mask = skimage.transform.resize(mask, (INPUT_SIZE, INPUT_SIZE))
@@ -805,12 +795,12 @@ def preproc_train(datapath):
         logger.info("Generate IMAGELIST csv")
         prep_valtrain_valtest_imagelist(area_id)
 
-#    # Band stats (RGB)
-#    if Path(FMT_RGB_BANDCUT_TH_PATH.format(prefix)).exists():
-#        logger.info("Generate band stats csv (RGB) ... skip")
-#    else:
-#        logger.info("Generate band stats csv (RGB)")
-#        calc_rgb_multiband_cut_threshold(area_id, datapath)
+    # Band stats (RGB)
+    if Path(FMT_RGB_BANDCUT_TH_PATH.format(prefix)).exists():
+        logger.info("Generate band stats csv (RGB) ... skip")
+    else:
+        logger.info("Generate band stats csv (RGB)")
+        calc_rgb_multiband_cut_threshold(area_id, datapath)
 
     # Band stats (MUL)
     if Path(FMT_MUL_BANDCUT_TH_PATH.format(prefix)).exists():
@@ -831,17 +821,17 @@ def preproc_train(datapath):
         logger.info("Generate MASK (valtest)")
         prep_image_mask(area_id, is_valtrain=False)
 
-#    # Image HDF5 store (RGB)
-#    if Path(FMT_VALTRAIN_IM_STORE.format(prefix)).exists():
-#        logger.info("Generate RGB_STORE (valtrain) ... skip")
-#    else:
-#        logger.info("Generate RGB_STORE (valtrain)")
-#        prep_rgb_image_store_train(area_id, datapath, is_valtrain=True)
-#    if Path(FMT_VALTEST_IM_STORE.format(prefix)).exists():
-#        logger.info("Generate RGB_STORE (valtest) ... skip")
-#    else:
-#        logger.info("Generate RGB_STORE (valtest)")
-#        prep_rgb_image_store_train(area_id, datapath, is_valtrain=False)
+    # Image HDF5 store (RGB)
+    if Path(FMT_VALTRAIN_IM_STORE.format(prefix)).exists():
+        logger.info("Generate RGB_STORE (valtrain) ... skip")
+    else:
+        logger.info("Generate RGB_STORE (valtrain)")
+        prep_rgb_image_store_train(area_id, datapath, is_valtrain=True)
+    if Path(FMT_VALTEST_IM_STORE.format(prefix)).exists():
+        logger.info("Generate RGB_STORE (valtest) ... skip")
+    else:
+        logger.info("Generate RGB_STORE (valtest)")
+        prep_rgb_image_store_train(area_id, datapath, is_valtrain=False)
 
     # Image HDF5 store (MUL)
     if Path(FMT_VALTRAIN_MUL_STORE.format(prefix)).exists():
@@ -855,12 +845,12 @@ def preproc_train(datapath):
         logger.info("Generate MUL_STORE (valtest)")
         prep_mul_image_store_train(area_id, datapath, is_valtrain=False)
 
-#    # Image Mean (RGB)
-#    if Path(FMT_IMMEAN.format(prefix)).exists():
-#        logger.info("Generate RGBMEAN ... skip")
-#    else:
-#        logger.info("Generate RGBMEAN")
-#        prep_immean(area_id, datapath)
+    # Image Mean (RGB)
+    if Path(FMT_IMMEAN.format(prefix)).exists():
+        logger.info("Generate RGBMEAN ... skip")
+    else:
+        logger.info("Generate RGBMEAN")
+        prep_immean(area_id, datapath)
 
     # Image Mean (MUL)
     if Path(FMT_MULMEAN.format(prefix)).exists():
@@ -888,12 +878,12 @@ def preproc_test(datapath):
         logger.info("Generate IMAGELIST for inference")
         prep_test_imagelist(area_id, datapath)
 
-#    # Image HDF5 store (RGB)
-#    if Path(FMT_TEST_IM_STORE.format(prefix)).exists():
-#        logger.info("Generate RGB_STORE (test) ... skip")
-#    else:
-#        logger.info("Generate RGB_STORE (test)")
-#        prep_rgb_image_store_test(area_id, datapath)
+    # Image HDF5 store (RGB)
+    if Path(FMT_TEST_IM_STORE.format(prefix)).exists():
+        logger.info("Generate RGB_STORE (test) ... skip")
+    else:
+        logger.info("Generate RGB_STORE (test)")
+        prep_rgb_image_store_test(area_id, datapath)
 
     # Image HDF5 store (MUL)
     if Path(FMT_TEST_MUL_STORE.format(prefix)).exists():

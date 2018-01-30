@@ -43,7 +43,7 @@ FN_SOLUTION_CSV = "/data/output/{}.csv".format(MODEL_NAME)
 FMT_TRAIN_SUMMARY_PATH = str(
     Path(BASE_DIR) /
     Path("{prefix:s}_Train/") /
-    Path("summaryData/{prefix:s}_Train_Building_Solutions.csv"))
+    Path("summaryData/{prefix:s}_Roads_Train.csv"))
 FMT_TRAIN_RGB_IMAGE_PATH = str(
     Path("{datapath:s}/") /
     Path("RGB-PanSharpen/RGB-PanSharpen_{image_id:s}.tif"))
