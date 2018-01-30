@@ -26,7 +26,7 @@ import shapely.wkt
 
 
 MODEL_NAME = 'v5'
-ORIGINAL_SIZE = 650
+ORIGINAL_SIZE = 1300
 INPUT_SIZE = 256
 
 BASE_TRAIN_DIR = "/data/train"
@@ -254,6 +254,35 @@ def __calc_mul_multiband_cut_threshold(area_id, datapath):
 #        band_cut_th[i_chan]['min'] = scipy.percentile(
 #            band_values[i_chan], 2, overwrite_input=True)
 #    return band_cut_th
+
+
+
+def image_mask_resized_from_summary_2(df, image_id):
+    # Edited by mrnabati
+    mask = np.zeros((1300, 1300))
+
+    if len(df[df.ImageId == image_id]) == 0:
+        raise RuntimeError("ImageId not found on summaryData: {}".format(
+            image_id))
+
+    for idx, row in df[df.ImageId == image_id].iterrows():
+            line = row['WKT_Pix']
+            coordinates = line[12:-1].split(', ')
+            if coordinates[0] == 'MPT':
+                continue
+            for i, coordinate in enumerate(coordinates):
+                point = coordinate.split(' ')
+                x = int(float(point[0]))
+                y = int(float(point[1]))
+                point = (x, y)
+                if i is not 0:
+                    # Draw a line from last point to point
+                    cv2.line(mask, last_point, point, (255, 255, 255), thickness=args.width)
+                last_point = point
+
+            
+    mask = skimage.transform.resize(mask, (INPUT_SIZE, INPUT_SIZE))
+    return mask
 
 
 def image_mask_resized_from_summary(df, image_id):
@@ -628,7 +657,7 @@ def prep_test_imagelist(area_id, datapath):
 def get_train_image_path_from_imageid(image_id, datapath, mul=False):
     prefix = image_id_to_prefix(image_id)
     if mul:
-        return FMT_TRAIN_MSPEC_IMAGE_PATH.format(
+IMAGE_PATH.format(
             datapath=datapath, prefix=prefix, image_id=image_id)
     else:
         return FMT_TRAIN_RGB_IMAGE_PATH.format(
