@@ -21,12 +21,14 @@ import tables as tb
 import pandas as pd
 import numpy as np
 import skimage.draw
+import skimage.transform
 import rasterio
 import shapely.wkt
+import cv2
 
 
 MODEL_NAME = 'v12'
-ORIGINAL_SIZE = 650
+ORIGINAL_SIZE = 1300
 INPUT_SIZE = 256
 STRIDE_SZ = 197
 
@@ -42,7 +44,7 @@ FN_SOLUTION_CSV = "/data/output/{}.csv".format(MODEL_NAME)
 # Input files
 FMT_TRAIN_SUMMARY_PATH = str(
     Path(BASE_DIR) /
-    Path("{prefix:s}_Train/") /
+    Path("{prefix:s}_Roads_Train/") /
     Path("summaryData/{prefix:s}_Roads_Train.csv"))
 FMT_TRAIN_RGB_IMAGE_PATH = str(
     Path("{datapath:s}/") /
@@ -205,7 +207,7 @@ def get_slice_8chan_im(image_id, datapath, bandstats, is_test=False):
             values[chan_i] = (values[chan_i] - min_val) / (max_val - min_val)
     values = np.swapaxes(values, 0, 2)
     values = np.swapaxes(values, 0, 1)
-    assert values.shape == (650, 650, 8)
+    assert values.shape == (1300, 1300, 8)
 
     for slice_pos in range(9):
         pos_j = int(math.floor(slice_pos / 3.0))
@@ -218,38 +220,37 @@ def get_slice_8chan_im(image_id, datapath, bandstats, is_test=False):
 
 
 def get_slice_mask_im(df, image_id):
-    im_mask = np.zeros((650, 650))
-
+    mask = np.zeros((1300, 1300))
+    thick = 10
     if len(df[df.ImageId == image_id]) == 0:
         raise RuntimeError("ImageId not found on summaryData: {}".format(
             image_id))
 
     for idx, row in df[df.ImageId == image_id].iterrows():
-        shape_obj = shapely.wkt.loads(row.PolygonWKT_Pix)
-        if shape_obj.exterior is not None:
-            coords = list(shape_obj.exterior.coords)
-            x = [round(float(pp[0])) for pp in coords]
-            y = [round(float(pp[1])) for pp in coords]
-            yy, xx = skimage.draw.polygon(y, x, (650, 650))
-            im_mask[yy, xx] = 1
+            line = row['WKT_Pix']
+            coordinates = line[12:-1].split(', ')
+            if coordinates[0] == 'MPT':
+                continue
+            for i, coordinate in enumerate(coordinates):
+                point = coordinate.split(' ')
+                x = int(float(point[0]))
+                y = int(float(point[1]))
+                point = (x, y)
+                if i is not 0:
+                    # Draw a line from last point to point
+                    cv2.line(mask, last_point, point, (255, 255, 255), thickness=thick)
+                last_point = point
 
-            interiors = shape_obj.interiors
-            for interior in interiors:
-                coords = list(interior.coords)
-                x = [round(float(pp[0])) for pp in coords]
-                y = [round(float(pp[1])) for pp in coords]
-                yy, xx = skimage.draw.polygon(y, x, (650, 650))
-                im_mask[yy, xx] = 0
-    im_mask = (im_mask > 0.5).astype(np.uint8)
-
+    #mask = skimage.transform.resize(mask, (INPUT_SIZE, INPUT_SIZE))
+    
     for slice_pos in range(9):
         pos_j = int(math.floor(slice_pos / 3.0))
         pos_i = int(slice_pos % 3)
         x0 = STRIDE_SZ * pos_i
         y0 = STRIDE_SZ * pos_j
-        im_mask_part = im_mask[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE]
-        assert im_mask_part.shape == (256, 256)
-        yield slice_pos, im_mask_part
+        mask_part = mask[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE]
+        assert mask_part.shape == (256, 256)
+        yield slice_pos, mask_part
 
 
 def prep_image_mask(area_id, is_valtrain=True):
