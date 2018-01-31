@@ -373,7 +373,7 @@ def follow(jobs, image, old_location):
                         # Black out the current pixel
                         row = old_location[0]
                         column = old_location[1]
-                    image[row][column] = black
+                        image[row][column] = black
 
                     # If another pixel is found
                     else:
@@ -1849,8 +1849,9 @@ def testmerge():
 
 
 @cli.command()
-@click.argument('area_id', type=int)
-def testproc(area_id):
+@click.argument('data_path', type=str)
+def testproc(data_path):
+    area_id = directory_name_to_area_id(data_path)
     prefix = area_id_to_prefix(area_id)
     logger.info(">>>> Test proc for {}".format(prefix))
 
