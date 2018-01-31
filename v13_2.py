@@ -15,6 +15,7 @@ import sys
 import json
 import re
 import warnings
+import os
 
 import scipy
 import tqdm
@@ -40,7 +41,7 @@ import shapely.geometry
 
 
 MODEL_NAME = 'v13'
-ORIGINAL_SIZE = 650
+ORIGINAL_SIZE = 1300
 INPUT_SIZE = 256
 STRIDE_SZ = 197
 
@@ -1780,6 +1781,14 @@ def validate(datapath):
 
     if not Path(MODEL_DIR).exists():
         Path(MODEL_DIR).mkdir(parents=True)
+        
+    init_ep = 0
+    name_tail = "_{:02d}".format(init_ep)
+    while os.path.isfile(FMT_VALMODEL_PATH.format(prefix + name_tail)):
+        last_model_path = FMT_VALMODEL_PATH.format(prefix + name_tail)
+        print(last_model_path)
+        init_ep += 1
+        name_tail = "_{:02d}".format(init_ep)
 
     logger.info("Instantiate U-Net model")
     model = get_unet()
@@ -1787,12 +1796,16 @@ def validate(datapath):
         FMT_VALMODEL_PATH.format(prefix + "_{epoch:02d}"),
         monitor='val_jaccard_coef_int',
         save_best_only=False)
+
     model_earlystop = EarlyStopping(
         monitor='val_jaccard_coef_int',
         patience=10,
         verbose=0,
         mode='max')
     model_history = History()
+
+    if init_ep >= 1:
+        model.load_weights(last_model_path)
 
     df_train = pd.read_csv(FMT_VALTRAIN_IMAGELIST_PATH.format(
         prefix=prefix))
