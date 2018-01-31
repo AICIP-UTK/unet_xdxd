@@ -136,14 +136,14 @@ def __calc_rgb_multiband_cut_threshold(area_id, datapath):
         prefix=prefix)).ImageId.tolist()
     image_id_list2 = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(
         prefix=prefix)).ImageId.tolist()
-    image_id_list.append(image_id_list2)
+    image_id_list.extend(image_id_list2)
 
     for i_chan in range(3):
         logger.info("Reading band {} of the dataset..".format(i_chan))
         band_values = []
         for image_id in tqdm.tqdm(image_id_list[:500]):
             image_fn = get_train_image_path_from_imageid(
-                image_id, datapath, mul=True)
+                image_id, datapath)
             with rasterio.open(image_fn, 'r') as f:
                 values = f.read().astype(np.float32)
                 values_ = values[i_chan].ravel().tolist()
@@ -183,7 +183,7 @@ def __calc_mul_multiband_cut_threshold(area_id, datapath):
         prefix=prefix)).ImageId.tolist()
     image_id_list2 = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(
         prefix=prefix)).ImageId.tolist()
-    image_id_list.append(image_id_list2)
+    image_id_list.extend(image_id_list2)
 
     for i_chan in range(8):
         logger.info("Reading band {} of the dataset..".format(i_chan))

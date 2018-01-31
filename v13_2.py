@@ -1794,6 +1794,7 @@ def validate(datapath):
     model = get_unet()
     model_checkpoint = ModelCheckpoint(
         FMT_VALMODEL_PATH.format(prefix + "_{epoch:02d}"),
+#        FMT_VALMODEL_PATH.format(prefix + "_10"),
         monitor='val_jaccard_coef_int',
         save_best_only=False)
 
@@ -1813,7 +1814,7 @@ def validate(datapath):
     model.fit_generator(
         generate_valtrain_batch(area_id, batch_size=2, immean=X_mean),
         samples_per_epoch=len(df_train) * 9,
-        nb_epoch=35,
+        nb_epoch=12,
         verbose=1,
         validation_data=(X_val, y_val),
         callbacks=[model_checkpoint, model_earlystop, model_history])

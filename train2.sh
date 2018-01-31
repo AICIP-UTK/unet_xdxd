@@ -19,7 +19,7 @@ source activate py35 && for train_path in $@; do
     echo ">>>>>>>>>> v13.py"
     python v13_2.py validate $train_path
     # Parametr optimization for v13 model
-    echo ">>>>>>>>>> v13.py"
-    python v13_2.py evalfscore $train_path
+#    echo ">>>>>>>>>> v13.py"
+#    python v13_2.py evalfscore $train_path
 
 done
