@@ -39,6 +39,21 @@ import shapely.wkt
 import shapely.ops
 import shapely.geometry
 
+#Added: Jan 30th: mask2linestrings.
+import argparse
+import cv2
+import Queue
+from shapely.geometry import LineString, Point
+import sys
+from skimage import morphology
+
+# Constants
+width = 1300
+height = 1300
+white = 255
+black = 0
+spacing = 1
+
 
 MODEL_NAME = 'v13'
 ORIGINAL_SIZE = 1300
@@ -286,6 +301,177 @@ def area_id_to_prefix(area_id):
     }
     return area_dict[area_id]
 
+# ---------------------------------------------------------
+# mask2linestring functions:
+
+# Generates the lists of coordinate alterations needed to search around a candidate pixel
+# up to a certain spacing away from the candidate pixel
+def grid(spacing):
+    search = []
+
+    for r in range(-spacing, spacing+1, 1):
+        for c in range(-spacing, spacing+1, 1):
+            if r == -spacing or r == spacing or c == -spacing or c == spacing:
+                search.append((r, c))
+    return search
+
+
+# From the current pixel, follow along the white pixels and add those pixels to a line
+# If multiple paths appear, create a new job
+def follow(jobs, image, old_location):
+    # Create "linestring"
+    linestring = []
+
+    old_direction = -1
+
+    # Follow the line while there are still pixels
+    done = False
+    while not done:
+        found = 0
+
+        row = old_location[0]
+        column = old_location[1]
+
+        # Add the current pixel to the linestring
+        linestring.append(old_location)
+
+        # Search 1, 2, etc. pixels away until a pixel is found or the limit is reached
+        for reach, search in enumerate(searches):
+
+            # Look at the 8 pixels around the center
+            for direction, pixel in enumerate(search):
+                r1 = pixel[0]
+                c1 = pixel[1]
+
+                # If the search goes outside the bounds
+                if row+r1 < 0 or row+r1 > len(image)-1 or column+c1 < 0 or column+c1 > len(image[0])-1:
+                    continue
+
+                # If the pixel looked at is white
+                if image[row+r1][column+c1] == white:
+                    found += 1
+
+                    # If the search is looking 1 pixel away, check direction
+                    if reach == 0:
+                        new_direction = direction
+                    # Otherwise, assume a direction change
+                    else:
+                        new_direction = -1
+
+                    # If this is the first pixel found
+                    if found == 1:
+                        # If the direction of travel has not changed
+                        if old_direction == new_direction:
+                            # Replace the last pixel in the linestring
+                            linestring.pop()
+
+                        old_direction = new_direction
+
+                        # Select new pixel to investigate
+                        new_location = (row+r1, column+c1)
+
+                        # Black out the current pixel
+                        row = old_location[0]
+                        column = old_location[1]
+                    image[row][column] = black
+
+                    # If another pixel is found
+                    else:
+                        # Add another job to search for that linestring
+                        job = (image, old_location)
+                        jobs.put(job)
+
+    # If a pixel is found at this search level, stop searching
+    if found > 0:
+        break
+
+        # If no surrounding pixels were white
+        if found == 0:
+            done = True
+
+            # Black out the current pixel
+            row = old_location[0]
+            column = old_location[1]
+            image[row][column] = black
+
+        # Update the pixel to investigate if there is one
+        if not done:
+            old_location = new_location
+
+return linestring
+
+
+# Given a skeletonized image, finds the linestrings that define it
+# If the linestrings have gaps in them less than or equal to spacing, they still count
+def skeleton2linestrings(image, spacing):
+
+    linestrings = []
+
+    # Iterate over all pixels
+    for row in range(len(image)):
+        for column in range(len(image[0])):
+            # If the pixel is white
+            if image[row][column] == white:
+                # Create empty queue of jobs
+                jobs = Queue.Queue()
+
+                # Add this pixel to the jobs queue
+                old_location = (row, column)
+                job = (image, old_location)
+                jobs.put(job)
+
+                while not jobs.empty():
+                    job = jobs.get()
+                    linestring = follow(jobs, job[0], job[1])
+
+                    # Remove all the linestrings that are just a single point
+                    if len(linestring) > 1:
+                        linestrings.append(linestring)
+
+return linestrings
+
+def mask2linestrings(pred_values, spacing):
+    searches = []
+
+    # Create the constant search grids needed to look for pixels
+    for i in range(spacing):
+        searches.append(grid(i + 1))
+
+    # Skeletonize the image
+    skeletonized = morphology.medial_axis(pred_values)
+    skeletonized = skeletonized.astype(np.uint8)
+    skeletonized *= 255
+
+    # Find the linestrings from the image
+    linestrings = skeleton2linestrings(skeletonized, spacing)
+    return linestrings
+#Not used:
+def write_csv_predict(images, image_ids, spacing):
+    with open("super_accurate.csv", 'w') as csv_predict:
+        csv_predict.write("ImageId,WKT_Pix\n")
+
+
+        for image, image_id in zip(images, image_ids):
+            linestrings = mask2linestrings(pred_values, spacing)
+
+            if len(linestrings) == 0:
+                lines = ["{},LINESTRING EMPTY".format(image_id)]
+            else:
+
+                lines = []
+
+                for linestring in linestrings:
+                    line = "{},\"LINESTRING (".format(image_id)
+                    for i, coordinate in enumerate(linestring):
+                        line += "{} {}".format(coordinate[1], coordinate[0])
+                        if i != (len(linestring-1)):
+                            line += ", "
+                        else:
+                            line += ")\""
+
+    for line in lines:
+        csv_predict.write(line+"\n")
+
 
 # ---------------------------------------------------------
 # main
@@ -367,10 +553,10 @@ def _internal_test(area_id):
 
     fn_out = FMT_TESTPOLY_PATH.format(prefix)
     with open(fn_out, 'w') as f:
-        f.write("ImageId,BuildingId,PolygonWKT_Pix,Confidence\n")
+        f.write("ImageId,WKT_Pix\n")
         for idx, image_id in enumerate(df_test.index.tolist()):
-            pred_values = np.zeros((650, 650))
-            pred_count = np.zeros((650, 650))
+            pred_values = np.zeros((1300, 1300))
+            pred_count = np.zeros((1300, 1300))
             for slice_pos in range(9):
                 slice_idx = idx * 9 + slice_pos
 
@@ -384,21 +570,18 @@ def _internal_test(area_id):
                 pred_count[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += 1
             pred_values = pred_values / pred_count
 
-            df_poly = mask_to_poly(pred_values, min_polygon_area_th=min_th)
-            if len(df_poly) > 0:
-                for i, row in df_poly.iterrows():
-                    line = "{},{},\"{}\",{:.6f}\n".format(
+            linstrings = mask2linestrings(pred_values, spacing)
+            if len(linstrings) > 0:
+                for i, row in linstrings.iterrows():
+                    line = "{},{}\n".format(
                         image_id,
-                        row.bid,
-                        row.wkt,
-                        row.area_ratio)
-                    line = _remove_interiors(line)
+                        row.wkt)
                     f.write(line)
             else:
                 f.write("{},{},{},0\n".format(
                     image_id,
                     -1,
-                    "POLYGON EMPTY"))
+                    "EMPTY"))
 
 
 def _internal_validate_predict_best_param(area_id,
@@ -484,13 +667,13 @@ def _internal_validate_fscore_wo_pred_file(area_id,
 
     fn_out = FMT_VALTESTPOLY_PATH.format(prefix)
     with open(fn_out, 'w') as f:
-        f.write("ImageId,BuildingId,PolygonWKT_Pix,Confidence\n")
+        f.write("ImageId,WKT_Pix\n")
         test_list = df_test.index.tolist()
         iterator = enumerate(test_list)
 
         for idx, image_id in tqdm.tqdm(iterator, total=len(test_list)):
-            pred_values = np.zeros((650, 650))
-            pred_count = np.zeros((650, 650))
+            pred_values = np.zeros((1300, 1300))
+            pred_count = np.zeros((1300, 1300))
             for slice_pos in range(9):
                 slice_idx = idx * 9 + slice_pos
 
@@ -504,21 +687,19 @@ def _internal_validate_fscore_wo_pred_file(area_id,
                 pred_count[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += 1
             pred_values = pred_values / pred_count
 
-            df_poly = mask_to_poly(pred_values, min_polygon_area_th=min_th)
-            if len(df_poly) > 0:
-                for i, row in df_poly.iterrows():
-                    line = "{},{},\"{}\",{:.6f}\n".format(
+            linstrings = mask2linestrings(pred_values, spacing)
+            if len(linstrings) > 0:
+                for i, row in linstrings.iterrows():
+                    line = "{},{}\n".format(
                         image_id,
-                        row.bid,
-                        row.wkt,
-                        row.area_ratio)
-                    line = _remove_interiors(line)
+                        row.wkt)
                     f.write(line)
             else:
                 f.write("{},{},{},0\n".format(
                     image_id,
                     -1,
-                    "POLYGON EMPTY"))
+                    "EMPTY"))
+
 
     # ------------------------
     # Validation solution file
@@ -534,13 +715,13 @@ def _internal_validate_fscore_wo_pred_file(area_id,
 
     fn_out = FMT_VALTESTTRUTH_PATH.format(prefix)
     with open(fn_out, 'w') as f:
-        f.write("ImageId,BuildingId,PolygonWKT_Pix,Confidence\n")
+        f.write("ImageId,WKT_Pix\n")
         df_true = df_true[df_true.ImageId.isin(df_test_image_ids)]
         for idx, r in df_true.iterrows():
             f.write("{},{},\"{}\",{:.6f}\n".format(
                 r.ImageId,
                 r.BuildingId,
-                r.PolygonWKT_Pix,
+                r.WKT_Pix,
                 1.0))
 
 
@@ -569,13 +750,13 @@ def _internal_validate_fscore(area_id,
 
     fn_out = FMT_VALTESTPOLY_PATH.format(prefix)
     with open(fn_out, 'w') as f:
-        f.write("ImageId,BuildingId,PolygonWKT_Pix,Confidence\n")
+        f.write("ImageId,WKT_Pix\n")
         test_list = df_test.index.tolist()
         iterator = enumerate(test_list)
 
         for idx, image_id in tqdm.tqdm(iterator, total=len(test_list)):
-            pred_values = np.zeros((650, 650))
-            pred_count = np.zeros((650, 650))
+            pred_values = np.zeros((1300, 1300))
+            pred_count = np.zeros((1300, 1300))
             for slice_pos in range(9):
                 slice_idx = idx * 9 + slice_pos
 
@@ -589,21 +770,19 @@ def _internal_validate_fscore(area_id,
                 pred_count[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += 1
             pred_values = pred_values / pred_count
 
-            df_poly = mask_to_poly(pred_values, min_polygon_area_th=min_th)
-            if len(df_poly) > 0:
-                for i, row in df_poly.iterrows():
-                    line = "{},{},\"{}\",{:.6f}\n".format(
+            linstrings = mask2linestrings(pred_values, spacing)
+            if len(linstrings) > 0:
+                for i, row in linstrings.iterrows():
+                    line = "{},{}\n".format(
                         image_id,
-                        row.bid,
-                        row.wkt,
-                        row.area_ratio)
-                    line = _remove_interiors(line)
+                        row.wkt)
                     f.write(line)
             else:
                 f.write("{},{},{},0\n".format(
                     image_id,
                     -1,
-                    "POLYGON EMPTY"))
+                    "EMPTY"))
+
 
     # ------------------------
     # Validation solution file
@@ -621,13 +800,12 @@ def _internal_validate_fscore(area_id,
 
         fn_out = FMT_VALTESTTRUTH_PATH.format(prefix)
         with open(fn_out, 'w') as f:
-            f.write("ImageId,BuildingId,PolygonWKT_Pix,Confidence\n")
+            f.write("ImageId,WKT_Pix\n")
             df_true = df_true[df_true.ImageId.isin(df_test_image_ids)]
             for idx, r in df_true.iterrows():
-                f.write("{},{},\"{}\",{:.6f}\n".format(
+                f.write("{},\"{}\",{:.6f}\n".format(
                     r.ImageId,
-                    r.BuildingId,
-                    r.PolygonWKT_Pix,
+                    r.WKT_Pix,
                     1.0))
 
 
@@ -1178,7 +1356,7 @@ def get_mask_im(df, image_id):
 def get_slice_mask_im(df, image_id):
     im_mask = np.zeros((650, 650))
     for idx, row in df[df.ImageId == image_id].iterrows():
-        shape_obj = shapely.wkt.loads(row.PolygonWKT_Pix)
+        shape_obj = shapely.wkt.loads(row.WKT_Pix)
         if shape_obj.exterior is not None:
             coords = list(shape_obj.exterior.coords)
             x = [round(float(pp[0])) for pp in coords]
@@ -1781,7 +1959,7 @@ def validate(datapath):
 
     if not Path(MODEL_DIR).exists():
         Path(MODEL_DIR).mkdir(parents=True)
-        
+
     init_ep = 0
     name_tail = "_{:02d}".format(init_ep)
     while os.path.isfile(FMT_VALMODEL_PATH.format(prefix + name_tail)):
@@ -1814,7 +1992,7 @@ def validate(datapath):
     model.fit_generator(
         generate_valtrain_batch(area_id, batch_size=2, immean=X_mean),
         samples_per_epoch=len(df_train) * 9,
-        nb_epoch=12,
+        nb_epoch=22,
         verbose=1,
         validation_data=(X_val, y_val),
         callbacks=[model_checkpoint, model_earlystop, model_history])
