@@ -381,9 +381,9 @@ def follow(jobs, image, old_location):
                         job = (image, old_location)
                         jobs.put(job)
 
-    # If a pixel is found at this search level, stop searching
-    if found > 0:
-        break
+            # If a pixel is found at this search level, stop searching
+            if found > 0:
+                break
 
         # If no surrounding pixels were white
         if found == 0:
@@ -398,7 +398,7 @@ def follow(jobs, image, old_location):
         if not done:
             old_location = new_location
 
-return linestring
+    return linestring
 
 
 # Given a skeletonized image, finds the linestrings that define it
