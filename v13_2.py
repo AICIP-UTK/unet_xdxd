@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# i*- coding: utf-8 -*-
 """
 v13 model
 
@@ -42,7 +42,7 @@ import shapely.geometry
 #Added: Jan 30th: mask2linestrings.
 import argparse
 import cv2
-import Queue
+import queue
 from shapely.geometry import LineString, Point
 import sys
 from skimage import morphology
@@ -53,6 +53,21 @@ height = 1300
 white = 255
 black = 0
 spacing = 1
+
+# Generates the lists of coordinate alterations needed to search around a candidate pixel
+# up to a certain spacing away from the candidate pixel
+def grid(spacing):
+    search = []
+
+    for r in range(-spacing, spacing+1, 1):
+        for c in range(-spacing, spacing+1, 1):
+            if r == -spacing or r == spacing or c == -spacing or c == spacing:
+                search.append((r, c))
+    return search
+
+searches = []
+for i in range(spacing):
+    searches.append(grid(i+1))
 
 
 MODEL_NAME = 'v13'
@@ -319,6 +334,7 @@ def grid(spacing):
 # From the current pixel, follow along the white pixels and add those pixels to a line
 # If multiple paths appear, create a new job
 def follow(jobs, image, old_location):
+
     # Create "linestring"
     linestring = []
 
@@ -413,7 +429,7 @@ def skeleton2linestrings(image, spacing):
             # If the pixel is white
             if image[row][column] == white:
                 # Create empty queue of jobs
-                jobs = Queue.Queue()
+                jobs = queue.Queue()
 
                 # Add this pixel to the jobs queue
                 old_location = (row, column)
@@ -428,14 +444,9 @@ def skeleton2linestrings(image, spacing):
                     if len(linestring) > 1:
                         linestrings.append(linestring)
 
-return linestrings
+    return linestrings
 
 def mask2linestrings(pred_values, spacing):
-    searches = []
-
-    # Create the constant search grids needed to look for pixels
-    for i in range(spacing):
-        searches.append(grid(i + 1))
 
     # Skeletonize the image
     skeletonized = morphology.medial_axis(pred_values)
@@ -446,13 +457,20 @@ def mask2linestrings(pred_values, spacing):
     linestrings = skeleton2linestrings(skeletonized, spacing)
     return linestrings
 #Not used:
-def write_csv_predict(images, image_ids, spacing):
-    with open("super_accurate.csv", 'w') as csv_predict:
+def write_csv_predict(images, image_ids, spacing, csv_filename):
+    with open(csv_filename, 'w') as csv_predict:
         csv_predict.write("ImageId,WKT_Pix\n")
 
-
         for image, image_id in zip(images, image_ids):
-            linestrings = mask2linestrings(pred_values, spacing)
+            image = np.squeeze(image)
+            cv2.imwrite("noraml.tif", image)
+            derp_image2 = (image*255).astype(np.uint8)
+            cv2.imwrite("255unin8.tif", derp_image2)
+            derp_image = ((image > 0.5)*255).astype(np.uint8)
+            cv2.imwrite("booluint8.tif", derp_image)
+            exit(1)
+            binary_image = (image > 0.5).astype(np.uint8)
+            linestrings = mask2linestrings(binary_image, spacing)
 
             if len(linestrings) == 0:
                 lines = ["{},LINESTRING EMPTY".format(image_id)]
@@ -464,13 +482,13 @@ def write_csv_predict(images, image_ids, spacing):
                     line = "{},\"LINESTRING (".format(image_id)
                     for i, coordinate in enumerate(linestring):
                         line += "{} {}".format(coordinate[1], coordinate[0])
-                        if i != (len(linestring-1)):
+                        if i != (len(linestring)-1):
                             line += ", "
                         else:
                             line += ")\""
 
-    for line in lines:
-        csv_predict.write(line+"\n")
+            for line in lines:
+                csv_predict.write(line+"\n")
 
 
 # ---------------------------------------------------------
@@ -542,6 +560,16 @@ def _internal_test(area_id):
     prefix = area_id_to_prefix(area_id)
     y_pred = _internal_test_predict_best_param(area_id, save_pred=False)
 
+    fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
+    df_test = pd.read_csv(fn_test, index_col='ImageId')
+    image_ids = df_test.index.tolist()
+    spacing = 1
+
+    fn_out = FMT_TESTPOLY_PATH.format(prefix)
+
+    write_csv_predict(y_pred, image_ids, spacing, fn_out)
+
+    """
     # Postprocessing phase
     logger.info("Postprocessing phase")
     # if not Path(FMT_VALTESTPOLY_PATH.format(prefix)).exists():
@@ -582,6 +610,7 @@ def _internal_test(area_id):
                     image_id,
                     -1,
                     "EMPTY"))
+    """
 
 
 def _internal_validate_predict_best_param(area_id,
@@ -660,6 +689,16 @@ def _internal_validate_fscore_wo_pred_file(area_id,
         epoch=epoch,
         enable_tqdm=enable_tqdm)
 
+    fn_test = FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix)
+    df_test = pd.read_csv(fn_test, index_col='ImageId')
+    image_ids = df_test.index.tolist()
+    spacing = 1
+
+    fn_out = FMT_VALTESTPOLY_PATH.format(prefix)
+
+    write_csv_predict(y_pred, image_ids, spacing, fn_out)
+
+    """
     # Postprocessing phase
     logger.info("Postprocessing phase")
     fn_test = FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix)
@@ -699,8 +738,19 @@ def _internal_validate_fscore_wo_pred_file(area_id,
                     image_id,
                     -1,
                     "EMPTY"))
+    """
 
 
+    fn_test = FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix)
+    df_test = pd.read_csv(fn_test)
+    image_ids = df_test.ImageId.unique()
+    spacing = 1
+
+    fn_out = FMT_VALTESTTRUTH_PATH.format(prefix)
+
+    write_csv_predict(y_pred, image_ids, spacing, fn_out)
+
+    """
     # ------------------------
     # Validation solution file
     logger.info("Validation solution file")
@@ -723,6 +773,7 @@ def _internal_validate_fscore_wo_pred_file(area_id,
                 r.BuildingId,
                 r.WKT_Pix,
                 1.0))
+     """
 
 
 def _internal_validate_fscore(area_id,
@@ -740,6 +791,17 @@ def _internal_validate_fscore(area_id,
             epoch=epoch,
             enable_tqdm=enable_tqdm)
 
+
+    fn_test = FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix)
+    df_test = pd.read_csv(fn_test, index_col='ImageId')
+    image_ids = df_test.index.tolist()
+    spacing = 1
+
+    fn_out = FMT_VALTESTPOLY_PATH.format(prefix)
+
+    write_csv_predict(y_pred, image_ids, spacing, fn_out)
+
+    """
     # Postprocessing phase
     logger.info("Postprocessing phase")
     fn_test = FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix)
@@ -783,7 +845,19 @@ def _internal_validate_fscore(area_id,
                     -1,
                     "EMPTY"))
 
+    """
 
+
+    fn_test = FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix)
+    df_test = pd.read_csv(fn_test)
+    image_ids = df_test.ImageId.unique()
+    spacing = 1
+
+    fn_out = FMT_VALTESTTRUTH_PATH.format(prefix)
+
+    write_csv_predict(y_pred, image_ids, spacing, fn_out)
+
+    """
     # ------------------------
     # Validation solution file
     logger.info("Validation solution file")
@@ -807,6 +881,7 @@ def _internal_validate_fscore(area_id,
                     r.ImageId,
                     r.WKT_Pix,
                     1.0))
+    """
 
 
 def mask_to_poly(mask, min_polygon_area_th=MIN_POLYGON_AREA):

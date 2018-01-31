@@ -268,7 +268,7 @@ def image_mask_resized_from_summary_2(df, image_id):
                 point = (x, y)
                 if i is not 0:
                     # Draw a line from last point to point
-                    cv2.line(mask, last_point, point, (255, 255, 255), thickness=thick)
+                    cv2.line(mask, last_point, point, 1, thickness=thick)
                 last_point = point
 
     mask = skimage.transform.resize(mask, (INPUT_SIZE, INPUT_SIZE))
