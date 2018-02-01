@@ -56,12 +56,14 @@ FMT_TEST_MSPEC_IMAGE_PATH = str(
 FMT_RGB_BANDCUT_TH_PATH = IMAGE_DIR + "/rgb_bandcut{}.csv"
 FMT_MUL_BANDCUT_TH_PATH = IMAGE_DIR + "/mul_bandcut{}.csv"
 
-# Image list, Image container and mask container
+# Image list, Image container and mask container -------------------------
+# training images
 FMT_VALTRAIN_IMAGELIST_PATH = IMAGE_DIR + "/{prefix:s}_valtrain_ImageId.csv"
 FMT_VALTRAIN_MASK_STORE = IMAGE_DIR + "/valtrain_{}_mask.h5"
 FMT_VALTRAIN_IM_STORE = IMAGE_DIR + "/valtrain_{}_im.h5"
 FMT_VALTRAIN_MUL_STORE = IMAGE_DIR + "/valtrain_{}_mul.h5"
 
+# validation images
 FMT_VALTEST_IMAGELIST_PATH = IMAGE_DIR + "/{prefix:s}_valtest_ImageId.csv"
 FMT_VALTEST_MASK_STORE = IMAGE_DIR + "/valtest_{}_mask.h5"
 FMT_VALTEST_IM_STORE = IMAGE_DIR + "/valtest_{}_im.h5"
@@ -73,6 +75,7 @@ FMT_MULMEAN = IMAGE_DIR + "/{}_mulmean.h5"
 FMT_TEST_IMAGELIST_PATH = IMAGE_DIR + "/{prefix:s}_test_ImageId.csv"
 FMT_TEST_IM_STORE = IMAGE_DIR + "/test_{}_im.h5"
 FMT_TEST_MUL_STORE = IMAGE_DIR + "/test_{}_mul.h5"
+#-------------------------------------------------------------------------
 
 # Logger
 warnings.simplefilter("ignore", UserWarning)
@@ -158,7 +161,7 @@ def __calc_rgb_multiband_cut_threshold(area_id, datapath):
             band_values, 2, overwrite_input=True)
     return band_cut_th
 
-    
+
 
 def calc_mul_multiband_cut_threshold(area_id, datapath):
     rows = []
@@ -611,6 +614,7 @@ def __load_band_cut_th(band_fn):
 
 
 def prep_valtrain_valtest_imagelist(area_id):
+    # Save the training and validation datasets to a dataframe
     prefix = area_id_to_prefix(area_id)
     df = _load_train_summary_data(area_id)
     df_agg = df.groupby('ImageId').agg('first')
