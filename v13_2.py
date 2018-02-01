@@ -435,7 +435,6 @@ def skeleton2linestrings(image, spacing):
     return linestrings
 
 def mask2linestrings(pred_values, spacing):
-
     # Skeletonize the image
     skeletonized = morphology.medial_axis(pred_values)
     skeletonized = skeletonized.astype(np.uint8)
@@ -444,14 +443,13 @@ def mask2linestrings(pred_values, spacing):
     # Find the linestrings from the image
     linestrings = skeleton2linestrings(skeletonized, spacing)
     return linestrings
-#Not used:
+
 
 def write_csv_predict(images, image_ids, spacing, csv_filename):
     with open(csv_filename, 'w') as csv_predict:
         csv_predict.write("ImageId,WKT_Pix\n")
 
         for image, image_id in zip(images, image_ids):
-            #print(image_id)
             binary_image = (image > 0.5).astype(np.uint8)
             binary_image = np.squeeze(binary_image)
             cv2.imwrite("./outputImages/{}.tif".format(image_id),binary_image)
@@ -479,65 +477,65 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
 # main
 
 
-def _get_model_parameter(area_id):
-    prefix = area_id_to_prefix(area_id)
-    fn_hist = FMT_VALMODEL_EVALTHHIST.format(prefix)
-    best_row = pd.read_csv(fn_hist).sort_values(
-        by='fscore',
-        ascending=False,
-    ).iloc[0]
+# def _get_model_parameter(area_id):
+#     prefix = area_id_to_prefix(area_id)
+#     fn_hist = FMT_VALMODEL_EVALTHHIST.format(prefix)
+#     best_row = pd.read_csv(fn_hist).sort_values(
+#         by='fscore',
+#         ascending=False,
+#     ).iloc[0]
+#
+#     param = dict(
+#         fn_epoch=int(best_row['zero_base_epoch']),
+#         min_poly_area=int(best_row['min_area_th']),
+#     )
+#     return param
 
-    param = dict(
-        fn_epoch=int(best_row['zero_base_epoch']),
-        min_poly_area=int(best_row['min_area_th']),
-    )
-    return param
 
-
-def _internal_test_predict_best_param(area_id,
-                                      save_pred=True):
-    prefix = area_id_to_prefix(area_id)
-    param = _get_model_parameter(area_id)
-    epoch = param['fn_epoch']
-    min_th = param['min_poly_area']
-
-    # Prediction phase
-    logger.info("Prediction phase: {}".format(prefix))
-
-    X_mean = get_mul_mean_image(area_id)
-
-    # Load model weights
-    # Predict and Save prediction result
-    fn = FMT_TESTPRED_PATH.format(prefix)
-    fn_model = FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')
-    fn_model = fn_model.format(epoch=epoch)
-    model = get_unet()
-    model.load_weights(fn_model)
-
-    fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
-    df_test = pd.read_csv(fn_test, index_col='ImageId')
-
-    y_pred = model.predict_generator(
-        generate_test_batch(
-            area_id,
-            batch_size=64,
-            immean=X_mean,
-            enable_tqdm=True,
-        ),
-        val_samples=len(df_test) * 9,
-    )
-    del model
-
-    # Save prediction result
-    if save_pred:
-        with tb.open_file(fn, 'w') as f:
-            atom = tb.Atom.from_dtype(y_pred.dtype)
-            filters = tb.Filters(complib='blosc', complevel=9)
-            ds = f.create_carray(f.root, 'pred', atom, y_pred.shape,
-                                 filters=filters)
-            ds[:] = y_pred
-
-    return y_pred
+# def _internal_test_predict_best_param(area_id,
+#                                       save_pred=True):
+#     prefix = area_id_to_prefix(area_id)
+#     param = _get_model_parameter(area_id)
+#     epoch = param['fn_epoch']
+#     min_th = param['min_poly_area']
+#
+#     # Prediction phase
+#     logger.info("Prediction phase: {}".format(prefix))
+#
+#     X_mean = get_mul_mean_image(area_id)
+#
+#     # Load model weights
+#     # Predict and Save prediction result
+#     fn = FMT_TESTPRED_PATH.format(prefix)
+#     fn_model = FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')
+#     fn_model = fn_model.format(epoch=epoch)
+#     model = get_unet()
+#     model.load_weights(fn_model)
+#
+#     fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
+#     df_test = pd.read_csv(fn_test, index_col='ImageId')
+#
+#     y_pred = model.predict_generator(
+#         generate_test_batch(
+#             area_id,
+#             batch_size=64,
+#             immean=X_mean,
+#             enable_tqdm=True,
+#         ),
+#         val_samples=len(df_test) * 9,
+#     )
+#     del model
+#
+#     # Save prediction result
+#     if save_pred:
+#         with tb.open_file(fn, 'w') as f:
+#             atom = tb.Atom.from_dtype(y_pred.dtype)
+#             filters = tb.Filters(complib='blosc', complevel=9)
+#             ds = f.create_carray(f.root, 'pred', atom, y_pred.shape,
+#                                  filters=filters)
+#             ds[:] = y_pred
+#
+#     return y_pred
 
 
 def _internal_test_2(area_id):
@@ -561,8 +559,6 @@ def _internal_test_2(area_id):
 
     fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
     df_test = pd.read_csv(fn_test, index_col='ImageId')
-    print(df_test)
-    input("Press Enter to continue...")
 
     y_pred = model.predict_generator(
         generate_test_batch(
@@ -575,7 +571,7 @@ def _internal_test_2(area_id):
     )
     del model
 
-    # Save prediction result
+    # Save prediction result in a dataframe
     if save_pred:
         with tb.open_file(fn, 'w') as f:
             atom = tb.Atom.from_dtype(y_pred.dtype)
@@ -588,109 +584,64 @@ def _internal_test_2(area_id):
     spacing = 1
 
     fn_out = FMT_TESTLINE_PATH.format(prefix)
-    print(len(image_ids))
-    print(y_pred.shape)
     write_csv_predict(y_pred, image_ids, spacing, fn_out)
 
-    """
-    # Postprocessing phase
-    logger.info("Postprocessing phase")
-    # if not Path(FMT_VALTESTPOLY_PATH.format(prefix)).exists():
-    fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
-    df_test = pd.read_csv(fn_test, index_col='ImageId')
-    fn = FMT_TESTPRED_PATH.format(prefix)
-    with tb.open_file(fn, 'r') as f:
-        y_pred = np.array(f.get_node('/pred'))
 
-    fn_out = FMT_TESTPOLY_PATH.format(prefix)
-    with open(fn_out, 'w') as f:
-        f.write("ImageId,WKT_Pix\n")
-        for idx, image_id in enumerate(df_test.index.tolist()):
-            pred_values = np.zeros((1300, 1300))
-            pred_count = np.zeros((1300, 1300))
-            for slice_pos in range(9):
-                slice_idx = idx * 9 + slice_pos
-
-                pos_j = int(math.floor(slice_pos / 3.0))
-                pos_i = int(slice_pos % 3)
-                x0 = STRIDE_SZ * pos_i
-                y0 = STRIDE_SZ * pos_j
-                pred_values[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += (
-                    y_pred[slice_idx][0]
-                )
-                pred_count[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += 1
-            pred_values = pred_values / pred_count
-
-            linstrings = mask2linestrings(pred_values, spacing)
-            if len(linstrings) > 0:
-                for i, row in linstrings.iterrows():
-                    line = "{},{}\n".format(
-                        image_id,
-                        row.wkt)
-                    f.write(line)
-            else:
-                f.write("{},{},{},0\n".format(
-                    image_id,
-                    -1,
-                    "EMPTY"))
-    """
-
-
-def _internal_test(area_id):
-    prefix = area_id_to_prefix(area_id)
-    y_pred = _internal_test_predict_best_param(area_id, save_pred=False)
-
-    fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
-    df_test = pd.read_csv(fn_test, index_col='ImageId')
-    image_ids = df_test.index.tolist()
-    spacing = 1
-
-    fn_out = FMT_TESTPOLY_PATH.format(prefix)
-
-    write_csv_predict(y_pred, image_ids, spacing, fn_out)
-
-    """
-    # Postprocessing phase
-    logger.info("Postprocessing phase")
-    # if not Path(FMT_VALTESTPOLY_PATH.format(prefix)).exists():
-    fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
-    df_test = pd.read_csv(fn_test, index_col='ImageId')
-    fn = FMT_TESTPRED_PATH.format(prefix)
-    with tb.open_file(fn, 'r') as f:
-        y_pred = np.array(f.get_node('/pred'))
-
-    fn_out = FMT_TESTPOLY_PATH.format(prefix)
-    with open(fn_out, 'w') as f:
-        f.write("ImageId,WKT_Pix\n")
-        for idx, image_id in enumerate(df_test.index.tolist()):
-            pred_values = np.zeros((1300, 1300))
-            pred_count = np.zeros((1300, 1300))
-            for slice_pos in range(9):
-                slice_idx = idx * 9 + slice_pos
-
-                pos_j = int(math.floor(slice_pos / 3.0))
-                pos_i = int(slice_pos % 3)
-                x0 = STRIDE_SZ * pos_i
-                y0 = STRIDE_SZ * pos_j
-                pred_values[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += (
-                    y_pred[slice_idx][0]
-                )
-                pred_count[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += 1
-            pred_values = pred_values / pred_count
-
-            linstrings = mask2linestrings(pred_values, spacing)
-            if len(linstrings) > 0:
-                for i, row in linstrings.iterrows():
-                    line = "{},{}\n".format(
-                        image_id,
-                        row.wkt)
-                    f.write(line)
-            else:
-                f.write("{},{},{},0\n".format(
-                    image_id,
-                    -1,
-                    "EMPTY"))
-    """
+# def _internal_test(area_id):
+#     prefix = area_id_to_prefix(area_id)
+#     y_pred = _internal_test_predict_best_param(area_id, save_pred=False)
+#
+#     fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
+#     df_test = pd.read_csv(fn_test, index_col='ImageId')
+#     image_ids = df_test.index.tolist()
+#     spacing = 1
+#
+#     fn_out = FMT_TESTPOLY_PATH.format(prefix)
+#
+#     write_csv_predict(y_pred, image_ids, spacing, fn_out)
+#
+#     """
+#     # Postprocessing phase
+#     logger.info("Postprocessing phase")
+#     # if not Path(FMT_VALTESTPOLY_PATH.format(prefix)).exists():
+#     fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
+#     df_test = pd.read_csv(fn_test, index_col='ImageId')
+#     fn = FMT_TESTPRED_PATH.format(prefix)
+#     with tb.open_file(fn, 'r') as f:
+#         y_pred = np.array(f.get_node('/pred'))
+#
+#     fn_out = FMT_TESTPOLY_PATH.format(prefix)
+#     with open(fn_out, 'w') as f:
+#         f.write("ImageId,WKT_Pix\n")
+#         for idx, image_id in enumerate(df_test.index.tolist()):
+#             pred_values = np.zeros((1300, 1300))
+#             pred_count = np.zeros((1300, 1300))
+#             for slice_pos in range(9):
+#                 slice_idx = idx * 9 + slice_pos
+#
+#                 pos_j = int(math.floor(slice_pos / 3.0))
+#                 pos_i = int(slice_pos % 3)
+#                 x0 = STRIDE_SZ * pos_i
+#                 y0 = STRIDE_SZ * pos_j
+#                 pred_values[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += (
+#                     y_pred[slice_idx][0]
+#                 )
+#                 pred_count[x0:x0+INPUT_SIZE, y0:y0+INPUT_SIZE] += 1
+#             pred_values = pred_values / pred_count
+#
+#             linstrings = mask2linestrings(pred_values, spacing)
+#             if len(linstrings) > 0:
+#                 for i, row in linstrings.iterrows():
+#                     line = "{},{}\n".format(
+#                         image_id,
+#                         row.wkt)
+#                     f.write(line)
+#             else:
+#                 f.write("{},{},{},0\n".format(
+#                     image_id,
+#                     -1,
+#                     "EMPTY"))
+#     """
 
 
 # def _internal_validate_predict_best_param(area_id,
@@ -1066,61 +1017,61 @@ def generate_test_batch(area_id,
             pbar.close()
 
 
-def generate_valtest_batch(area_id,
-                           batch_size=8,
-                           immean=None,
-                           enable_tqdm=False):
-    prefix = area_id_to_prefix(area_id)
-    df_train = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix))
-    fn_im = FMT_VALTEST_MUL_STORE.format(prefix)
-    fn_mask = FMT_VALTEST_MASK_STORE.format(prefix)
-
-    slice_id_list = []
-    for idx, row in df_train.iterrows():
-        for slice_pos in range(9):
-            slice_id = row.ImageId + '_' + str(slice_pos)
-            slice_id_list.append(slice_id)
-
-    if enable_tqdm:
-        pbar = tqdm.tqdm(total=len(slice_id_list))
-
-    while 1:
-        total_sz = len(slice_id_list)
-        n_batch = int(math.floor(total_sz / batch_size) + 1)
-        with tb.open_file(fn_im, 'r') as f_im,\
-                tb.open_file(fn_mask, 'r') as f_mask:
-            for i_batch in range(n_batch):
-                target_slice_ids = slice_id_list[
-                    i_batch*batch_size:(i_batch+1)*batch_size
-                ]
-                if len(target_slice_ids) == 0:
-                    continue
-
-                X_train = []
-                y_train = []
-                for slice_id in target_slice_ids:
-                    im = np.array(f_im.get_node('/' + slice_id))
-                    im = np.swapaxes(im, 0, 2)
-                    im = np.swapaxes(im, 1, 2)
-
-                    X_train.append(im)
-                    mask = np.array(f_mask.get_node('/' + slice_id))
-                    mask = (mask > 0).astype(np.uint8)
-                    y_train.append(mask)
-                X_train = np.array(X_train)
-                y_train = np.array(y_train)
-                y_train = y_train.reshape((-1, 1, INPUT_SIZE, INPUT_SIZE))
-
-                if immean is not None:
-                    X_train = X_train - immean
-
-                if enable_tqdm:
-                    pbar.update(y_train.shape[0])
-
-                yield (X_train, y_train)
-
-        if enable_tqdm:
-            pbar.close()
+# def generate_valtest_batch(area_id,
+#                            batch_size=8,
+#                            immean=None,
+#                            enable_tqdm=False):
+#     prefix = area_id_to_prefix(area_id)
+#     df_train = pd.read_csv(FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix))
+#     fn_im = FMT_VALTEST_MUL_STORE.format(prefix)
+#     fn_mask = FMT_VALTEST_MASK_STORE.format(prefix)
+#
+#     slice_id_list = []
+#     for idx, row in df_train.iterrows():
+#         for slice_pos in range(9):
+#             slice_id = row.ImageId + '_' + str(slice_pos)
+#             slice_id_list.append(slice_id)
+#
+#     if enable_tqdm:
+#         pbar = tqdm.tqdm(total=len(slice_id_list))
+#
+#     while 1:
+#         total_sz = len(slice_id_list)
+#         n_batch = int(math.floor(total_sz / batch_size) + 1)
+#         with tb.open_file(fn_im, 'r') as f_im,\
+#                 tb.open_file(fn_mask, 'r') as f_mask:
+#             for i_batch in range(n_batch):
+#                 target_slice_ids = slice_id_list[
+#                     i_batch*batch_size:(i_batch+1)*batch_size
+#                 ]
+#                 if len(target_slice_ids) == 0:
+#                     continue
+#
+#                 X_train = []
+#                 y_train = []
+#                 for slice_id in target_slice_ids:
+#                     im = np.array(f_im.get_node('/' + slice_id))
+#                     im = np.swapaxes(im, 0, 2)
+#                     im = np.swapaxes(im, 1, 2)
+#
+#                     X_train.append(im)
+#                     mask = np.array(f_mask.get_node('/' + slice_id))
+#                     mask = (mask > 0).astype(np.uint8)
+#                     y_train.append(mask)
+#                 X_train = np.array(X_train)
+#                 y_train = np.array(y_train)
+#                 y_train = y_train.reshape((-1, 1, INPUT_SIZE, INPUT_SIZE))
+#
+#                 if immean is not None:
+#                     X_train = X_train - immean
+#
+#                 if enable_tqdm:
+#                     pbar.update(y_train.shape[0])
+#
+#                 yield (X_train, y_train)
+#
+#         if enable_tqdm:
+#             pbar.close()
 
 
 def generate_valtrain_batch(area_id, batch_size=8, immean=None):
@@ -2032,15 +1983,15 @@ def cli():
 #             f.write(line)
 
 
-@cli.command()
-@click.argument('data_path', type=str)
-def testproc(data_path):
-    area_id = directory_name_to_area_id(data_path)
-    prefix = area_id_to_prefix(area_id)
-    logger.info(">>>> Test proc for {}".format(prefix))
-
-    _internal_test(area_id)
-    logger.info(">>>> Test proc for {} ... done".format(prefix))
+# @cli.command()
+# @click.argument('data_path', type=str)
+# def testproc(data_path):
+#     area_id = directory_name_to_area_id(data_path)
+#     prefix = area_id_to_prefix(area_id)
+#     logger.info(">>>> Test proc for {}".format(prefix))
+#
+#     _internal_test(area_id)
+#     logger.info(">>>> Test proc for {} ... done".format(prefix))
 
 
 # @cli.command()
@@ -2156,7 +2107,6 @@ def validate(datapath): # This is the training process
     model = get_unet()
     model_checkpoint = ModelCheckpoint(
         FMT_VALMODEL_PATH.format(prefix + "_{epoch:02d}"),
-#        FMT_VALMODEL_PATH.format(prefix + "_10"),
         monitor='val_jaccard_coef_int',
         save_best_only=False)
 
@@ -2174,9 +2124,9 @@ def validate(datapath): # This is the training process
         prefix=prefix))
     logger.info("Fit")
     model.fit_generator(
-        generate_valtrain_batch(area_id, batch_size=2, immean=X_mean),
-        samples_per_epoch=len(df_train) * 9,
-        nb_epoch=22,
+        generate_valtrain_batch(area_id, batch_size=5, immean=X_mean),
+        samples_per_epoch=len(df_train),
+        nb_epoch=10,
         verbose=1,
         validation_data=(X_val, y_val),
         callbacks=[model_checkpoint, model_earlystop, model_history])
