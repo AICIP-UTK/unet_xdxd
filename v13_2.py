@@ -1172,10 +1172,22 @@ def generate_valtrain_batch(area_id, batch_size=8, immean=None):
                 if immean is not None:
                     X_train = X_train - immean
 
+                print(len(target_slice_ids))
+                print(target_slice_ids)
+                print(target_slice_ids[0])
+
                 print(X_train.shape)
                 print(X_train)
+                image = X_train[0][0]
+                print(image)
+                cv2.imwrite("xnormal.tif", image)
                 print(y_train.shape)
                 print(y_train)
+                image = y_train[0]
+                image = np.squeeze(image)
+                cv2.imwrite("ynormall.tif", image)
+                derp_image2 = (image*255).astype(np.uint8)
+                cv2.imwrite("y255uint8.tif", derp_image2)
                 exit(1)
                 yield (X_train, y_train)
 
