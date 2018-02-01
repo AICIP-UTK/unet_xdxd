@@ -15,15 +15,17 @@ source activate py35 && for test_path in $ARGS; do
     # Skip last arg
     [[ $test_path = $OUT ]] && break
 
-    echo ">>> PREPROCESSING STEP"
+    echo ">>> TEST PREPROCESSING STEP"
     echo ">>>" python v5_im2.py preproc_test $test_path
     python v5_im2.py preproc_test $test_path
     echo ">>>" python v12_im2.py preproc_test $test_path
     python v12_im2.py preproc_test $test_path
 
     echo ">>> INFERENCE STEP"
-    echo ">>>" python v13_2.py testproc $test_path
-    python v13_2.py testproc $test_path
+    # echo ">>>" python v13_2.py testproc $test_path
+    # python v13_2.py testproc $test_path
+    echo ">>>" python v13_2.py test $test_path
+    python v13_2.py test $test_path
 done
 
 # Merge infenrece results
