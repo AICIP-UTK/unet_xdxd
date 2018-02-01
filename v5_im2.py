@@ -254,6 +254,7 @@ def __calc_mul_multiband_cut_threshold(area_id, datapath):
 def image_mask_resized_from_summary_2(df, image_id):
     # Edited by mrnabati
     mask = np.zeros((1300, 1300))
+    #TODO: Take the thickness as an argument
     thick = 10
     if len(df[df.ImageId == image_id]) == 0:
         raise RuntimeError("ImageId not found on summaryData: {}".format(
@@ -278,54 +279,54 @@ def image_mask_resized_from_summary_2(df, image_id):
     return mask
 
 
-def image_mask_resized_from_summary(df, image_id):
-    im_mask = np.zeros((650, 650))
+# def image_mask_resized_from_summary(df, image_id):
+#     im_mask = np.zeros((650, 650))
+#
+#     if len(df[df.ImageId == image_id]) == 0:
+#         raise RuntimeError("ImageId not found on summaryData: {}".format(
+#             image_id))
+#
+#     for idx, row in df[df.ImageId == image_id].iterrows():
+#         shape_obj = shapely.wkt.loads(row.PolygonWKT_Pix)
+#         if shape_obj.exterior is not None:
+#             coords = list(shape_obj.exterior.coords)
+#             x = [round(float(pp[0])) for pp in coords]
+#             y = [round(float(pp[1])) for pp in coords]
+#             yy, xx = skimage.draw.polygon(y, x, (650, 650))
+#             im_mask[yy, xx] = 1
+#
+#             interiors = shape_obj.interiors
+#             for interior in interiors:
+#                 coords = list(interior.coords)
+#                 x = [round(float(pp[0])) for pp in coords]
+#                 y = [round(float(pp[1])) for pp in coords]
+#                 yy, xx = skimage.draw.polygon(y, x, (650, 650))
+#                 im_mask[yy, xx] = 0
+#     im_mask = skimage.transform.resize(im_mask, (INPUT_SIZE, INPUT_SIZE))
+#     im_mask = (im_mask > 0.5).astype(np.uint8)
+#     return im_mask
 
-    if len(df[df.ImageId == image_id]) == 0:
-        raise RuntimeError("ImageId not found on summaryData: {}".format(
-            image_id))
 
-    for idx, row in df[df.ImageId == image_id].iterrows():
-        shape_obj = shapely.wkt.loads(row.PolygonWKT_Pix)
-        if shape_obj.exterior is not None:
-            coords = list(shape_obj.exterior.coords)
-            x = [round(float(pp[0])) for pp in coords]
-            y = [round(float(pp[1])) for pp in coords]
-            yy, xx = skimage.draw.polygon(y, x, (650, 650))
-            im_mask[yy, xx] = 1
-
-            interiors = shape_obj.interiors
-            for interior in interiors:
-                coords = list(interior.coords)
-                x = [round(float(pp[0])) for pp in coords]
-                y = [round(float(pp[1])) for pp in coords]
-                yy, xx = skimage.draw.polygon(y, x, (650, 650))
-                im_mask[yy, xx] = 0
-    im_mask = skimage.transform.resize(im_mask, (INPUT_SIZE, INPUT_SIZE))
-    im_mask = (im_mask > 0.5).astype(np.uint8)
-    return im_mask
-
-
-def generate_test_mul_image_prep(area_id):
-    prefix = area_id_to_prefix(area_id)
-
-    df_test = pd.read_csv(
-        FMT_TEST_IMAGELIST_PATH.format(prefix=prefix),
-        index_col='ImageId')
-    band_mul_th = __load_band_cut_th(
-        FMT_MUL_BANDCUT_TH_PATH.format(prefix), bandsz=8)[area_id]
-
-    fn = FMT_TEST_MUL_STORE.format(prefix)
-    logger.info("Prepare image container: {}".format(fn))
-    with tb.open_file(fn, 'w') as f:
-        for image_id in tqdm.tqdm(df_test.index, total=len(df_test)):
-            im = get_resized_raster_8chan_image_test(
-                image_id, band_rgb_th, band_mul_th)
-            atom = tb.Atom.from_dtype(im.dtype)
-            filters = tb.Filters(complib='blosc', complevel=9)
-            ds = f.create_carray(f.root, image_id, atom, im.shape,
-                                 filters=filters)
-            ds[:] = im
+# def generate_test_mul_image_prep(area_id):
+#     prefix = area_id_to_prefix(area_id)
+#
+#     df_test = pd.read_csv(
+#         FMT_TEST_IMAGELIST_PATH.format(prefix=prefix),
+#         index_col='ImageId')
+#     band_mul_th = __load_band_cut_th(
+#         FMT_MUL_BANDCUT_TH_PATH.format(prefix), bandsz=8)[area_id]
+#
+#     fn = FMT_TEST_MUL_STORE.format(prefix)
+#     logger.info("Prepare image container: {}".format(fn))
+#     with tb.open_file(fn, 'w') as f:
+#         for image_id in tqdm.tqdm(df_test.index, total=len(df_test)):
+#             im = get_resized_raster_8chan_image_test(
+#                 image_id, band_rgb_th, band_mul_th)
+#             atom = tb.Atom.from_dtype(im.dtype)
+#             filters = tb.Filters(complib='blosc', complevel=9)
+#             ds = f.create_carray(f.root, image_id, atom, im.shape,
+#                                  filters=filters)
+#             ds[:] = im
 
 
 def prep_image_mask(area_id, is_valtrain=True):
@@ -530,6 +531,7 @@ def get_resized_8chan_image_test(image_id, datapath, bs_rgb, bs_mul):
     fn = get_test_image_path_from_imageid(image_id, datapath, mul=True)
     with rasterio.open(fn, 'r') as f:
         values = f.read().astype(np.float32)
+        #TODO: change the usechannels
         usechannels = [1, 2, 5, 6, 7]
         for chan_i in usechannels:
             min_val = bs_mul[chan_i]['min']
@@ -790,14 +792,14 @@ def preproc_train(datapath):
 
     # Imagelist
     if Path(FMT_VALTRAIN_IMAGELIST_PATH.format(prefix=prefix)).exists():
-        logger.info("Generate IMAGELIST csv ... skip")
+        logger.info("Generate VALTRAIN_IMAGELIST csv ... skip")
     else:
-        logger.info("Generate IMAGELIST csv")
+        logger.info("Generate VALTRAIN_IMAGELIST csv")
         prep_valtrain_valtest_imagelist(area_id)
     if Path(FMT_VALTEST_IMAGELIST_PATH.format(prefix=prefix)).exists():
-        logger.info("Generate IMAGELIST csv ... skip")
+        logger.info("Generate VALTEST_IMAGELIST csv ... skip")
     else:
-        logger.info("Generate IMAGELIST csv")
+        logger.info("Generate VALTEST_IMAGELIST csv")
         prep_valtrain_valtest_imagelist(area_id)
 
     # Band stats (RGB)
@@ -865,7 +867,7 @@ def preproc_train(datapath):
         prep_mulmean(area_id)
 
     # DONE!
-    logger.info("Preproc for training on {} ... done".format(prefix))
+    logger.info("Preprocessing for training on {} ... done".format(prefix))
 
 
 @cli.command()

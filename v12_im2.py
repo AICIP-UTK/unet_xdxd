@@ -242,7 +242,7 @@ def get_slice_mask_im(df, image_id):
                 last_point = point
 
     #mask = skimage.transform.resize(mask, (INPUT_SIZE, INPUT_SIZE))
-    
+
     for slice_pos in range(9):
         pos_j = int(math.floor(slice_pos / 3.0))
         pos_i = int(slice_pos % 3)
@@ -582,6 +582,7 @@ def preproc_train(datapath):
         prep_image_mask(area_id, is_valtrain=False)
 
     # Image HDF5 store (MUL)
+    #TODO: why is prep_mul_image_store_train here different from that in v5_im?
     if Path(FMT_VALTRAIN_MUL_STORE.format(prefix)).exists():
         logger.info("Generate MUL_STORE (valtrain) ... skip")
     else:
