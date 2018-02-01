@@ -1172,7 +1172,13 @@ def generate_valtrain_batch(area_id, batch_size=8, immean=None):
                 if immean is not None:
                     X_train = X_train - immean
 
+                print(X_train.shape)
+                print(X_train)
+                print(y_train.shape)
+                print(y_train)
+                exit(1)
                 yield (X_train, y_train)
+
 
 
 def get_unet():
