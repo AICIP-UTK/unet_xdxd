@@ -566,6 +566,7 @@ def _internal_test_2(area_id):
 
     fn_test = FMT_TEST_IMAGELIST_PATH.format(prefix=prefix)
     df_test = pd.read_csv(fn_test, index_col='ImageId')
+    print(df_test.shape)
 
     y_pred = model.predict_generator(
         generate_test_batch(
