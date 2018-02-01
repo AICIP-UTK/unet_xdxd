@@ -11,8 +11,8 @@ source activate py35 && for train_path in $@; do
     echo ">>> PREPROCESSING STEP ---------------------------"
     echo python v5_im2.py preproc_train $train_path
     python v5_im2.py preproc_train $train_path
-    echo python v12_im2.py preproc_train $train_path
-    python v12_im2.py preproc_train $train_path
+    #echo python v12_im2.py preproc_train $train_path
+    #python v12_im2.py preproc_train $train_path
 
     ### v13 --------------
     # Training for v13 model

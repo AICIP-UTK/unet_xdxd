@@ -114,20 +114,20 @@ def directory_name_to_area_id(datapath):
         raise RuntimeError("Unsupported city id is given.")
 
 
-def calc_rgb_multiband_cut_threshold(area_id, datapath):
-    rows = []
-    band_cut_th = __calc_rgb_multiband_cut_threshold(area_id, datapath)
-    prefix = area_id_to_prefix(area_id)
-    row = dict(prefix=area_id_to_prefix(area_id))
-    row['area_id'] = area_id
-    for chan_i in band_cut_th.keys():
-        row['chan{}_max'.format(chan_i)] = band_cut_th[chan_i]['max']
-        row['chan{}_min'.format(chan_i)] = band_cut_th[chan_i]['min']
-    rows.append(row)
-    pd.DataFrame(rows).to_csv(
-        FMT_RGB_BANDCUT_TH_PATH.format(prefix), index=False)
+#def calc_rgb_multiband_cut_threshold(area_id, datapath):
+#    rows = []
+#    band_cut_th = __calc_rgb_multiband_cut_threshold(area_id, datapath)
+#    prefix = area_id_to_prefix(area_id)
+#    row = dict(prefix=area_id_to_prefix(area_id))
+#    row['area_id'] = area_id
+#    for chan_i in band_cut_th.keys():
+#        row['chan{}_max'.format(chan_i)] = band_cut_th[chan_i]['max']
+#        row['chan{}_min'.format(chan_i)] = band_cut_th[chan_i]['min']
+#    rows.append(row)
+#    pd.DataFrame(rows).to_csv(
+#        FMT_RGB_BANDCUT_TH_PATH.format(prefix), index=False)
 
-
+"""
 def __calc_rgb_multiband_cut_threshold(area_id, datapath):
     prefix = area_id_to_prefix(area_id)
     band_cut_th = {k: dict(max=0, min=0) for k in range(3)}
@@ -157,7 +157,7 @@ def __calc_rgb_multiband_cut_threshold(area_id, datapath):
         band_cut_th[i_chan]['min'] = scipy.percentile(
             band_values, 2, overwrite_input=True)
     return band_cut_th
-
+"""
 
 
 def calc_mul_multiband_cut_threshold(area_id, datapath):
@@ -711,12 +711,12 @@ def train(datapath):
         logger.info("Generate VALTEST_IMAGELIST csv")
         prep_valtrain_valtest_imagelist(area_id)
 
-    # Band stats (RGB)
-    if Path(FMT_RGB_BANDCUT_TH_PATH.format(prefix)).exists():
-        logger.info("Generate band stats csv (RGB) ... skip")
-    else:
-        logger.info("Generate band stats csv (RGB)")
-        calc_rgb_multiband_cut_threshold(area_id, datapath)
+#    # Band stats (RGB)
+#    if Path(FMT_RGB_BANDCUT_TH_PATH.format(prefix)).exists():
+#        logger.info("Generate band stats csv (RGB) ... skip")
+#    else:
+#        logger.info("Generate band stats csv (RGB)")
+#        calc_rgb_multiband_cut_threshold(area_id, datapath)
 
     # Band stats (MUL)
     if Path(FMT_MUL_BANDCUT_TH_PATH.format(prefix)).exists():
@@ -738,18 +738,18 @@ def train(datapath):
         logger.info("Generate MASK (valtest)")
         prep_image_mask(area_id, is_valtrain=False)
 
-    # Image HDF5 store (RGB)
-    if Path(FMT_VALTRAIN_IM_STORE.format(prefix)).exists():
-        logger.info("Generate RGB_STORE (valtrain) ... skip")
-    else:
-        logger.info("Generate RGB_STORE (valtrain)")
-        prep_rgb_image_store_train(area_id, datapath, is_valtrain=True)
-    if Path(FMT_VALTEST_IM_STORE.format(prefix)).exists():
-
-        logger.info("Generate RGB_STORE (valtest) ... skip")
-    else:
-        logger.info("Generate RGB_STORE (valtest)")
-        prep_rgb_image_store_train(area_id, datapath, is_valtrain=False)
+#    # Image HDF5 store (RGB)
+#    if Path(FMT_VALTRAIN_IM_STORE.format(prefix)).exists():
+#        logger.info("Generate RGB_STORE (valtrain) ... skip")
+#    else:
+#        logger.info("Generate RGB_STORE (valtrain)")
+#        prep_rgb_image_store_train(area_id, datapath, is_valtrain=True)
+#    if Path(FMT_VALTEST_IM_STORE.format(prefix)).exists():
+#
+#        logger.info("Generate RGB_STORE (valtest) ... skip")
+#    else:
+#        logger.info("Generate RGB_STORE (valtest)")
+#        prep_rgb_image_store_train(area_id, datapath, is_valtrain=False)
 
     # Image HDF5 store (MUL)
     if Path(FMT_VALTRAIN_MUL_STORE.format(prefix)).exists():
@@ -764,12 +764,12 @@ def train(datapath):
         logger.info("Generate MUL_STORE (valtest)")
         prep_mul_image_store_train(area_id, datapath, is_valtrain=False)
 
-    # Image Mean (RGB)
-    if Path(FMT_IMMEAN.format(prefix)).exists():
-        logger.info("Generate RGBMEAN ... skip")
-    else:
-        logger.info("Generate RGBMEAN")
-        prep_immean(area_id, datapath)
+#    # Image Mean (RGB)
+#    if Path(FMT_IMMEAN.format(prefix)).exists():
+#        logger.info("Generate RGBMEAN ... skip")
+#    else:
+#        logger.info("Generate RGBMEAN")
+#        prep_immean(area_id, datapath)
 
     # Image Mean (MUL)
     if Path(FMT_MULMEAN.format(prefix)).exists():

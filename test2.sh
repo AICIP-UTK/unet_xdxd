@@ -18,8 +18,8 @@ source activate py35 && for test_path in $ARGS; do
     echo ">>> TEST PREPROCESSING STEP"
     echo ">>>" python v5_im2.py preproc_test $test_path
     python v5_im2.py preproc_test $test_path
-    echo ">>>" python v12_im2.py preproc_test $test_path
-    python v12_im2.py preproc_test $test_path
+    #echo ">>>" python v12_im2.py preproc_test $test_path
+    #python v12_im2.py preproc_test $test_path
 
     echo ">>> INFERENCE STEP"
     # echo ">>>" python v13_2.py testproc $test_path

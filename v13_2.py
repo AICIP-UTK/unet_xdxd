@@ -78,7 +78,7 @@ STRIDE_SZ = 197
 BASE_DIR = "/data/train"
 BASE_TEST_DIR = "/data/test"
 WORKING_DIR = "/data/working"
-IMAGE_DIR = "/data/working/images/{}".format('v12')
+IMAGE_DIR = "/data/working/images/{}".format('v5')
 V5_IMAGE_DIR = "/data/working/images/{}".format('v5')
 
 # ---------------------------------------------------------
@@ -451,15 +451,10 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
         csv_predict.write("ImageId,WKT_Pix\n")
 
         for image, image_id in zip(images, image_ids):
-            image = np.squeeze(image)
-            cv2.imwrite("noraml.tif", image)
-            derp_image2 = (image*255).astype(np.uint8)
-            cv2.imwrite("255unin8.tif", derp_image2)
-            derp_image = ((image > 0.5)*255).astype(np.uint8)
-            cv2.imwrite("booluint8.tif", derp_image)
-            # exit(1)
-
+            #print(image_id)
             binary_image = (image > 0.5).astype(np.uint8)
+            binary_image = np.squeeze(binary_image)
+            cv2.imwrite("./outputImages/{}.tif".format(image_id),binary_image)
             linestrings = mask2linestrings(binary_image, spacing)
 
             if len(linestrings) == 0:
@@ -470,12 +465,12 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
                 for linestring in linestrings:
                     line = "{},\"LINESTRING (".format(image_id)
                     for i, coordinate in enumerate(linestring):
-                        line += "{} {}".format(coordinate[1], coordinate[0])
+                        line += "{} {}".format((coordinate[1]/256.0)*1300, (coordinate[0]/256.0)*1300)
                         if i != (len(linestring)-1):
                             line += ", "
                         else:
                             line += ")\""
-
+                    lines.append(line)
             for line in lines:
                 csv_predict.write(line+"\n")
 
@@ -550,7 +545,7 @@ def _internal_test_2(area_id):
     save_pred=True
 
     #TODO: Add option for using the last (best) epoch
-    epoch = 20
+    epoch = 1
 
     # Prediction phase
     logger.info("Prediction phase: {}".format(prefix))
@@ -576,7 +571,7 @@ def _internal_test_2(area_id):
             immean=X_mean,
             enable_tqdm=True,
         ),
-        val_samples=len(df_test) * 9
+        val_samples=len(df_test)
     )
     del model
 
@@ -593,6 +588,8 @@ def _internal_test_2(area_id):
     spacing = 1
 
     fn_out = FMT_TESTLINE_PATH.format(prefix)
+    print(len(image_ids))
+    print(y_pred.shape)
     write_csv_predict(y_pred, image_ids, spacing, fn_out)
 
     """
@@ -1027,9 +1024,8 @@ def generate_test_batch(area_id,
 
     slice_id_list = []
     for idx, row in df_test.iterrows():
-        for slice_pos in range(9):
-            slice_id = row.ImageId + '_' + str(slice_pos)
-            slice_id_list.append(slice_id)
+        slice_id = row.ImageId
+        slice_id_list.append(slice_id)
 
     if enable_tqdm:
         pbar = tqdm.tqdm(total=len(slice_id_list))
@@ -1136,33 +1132,41 @@ def generate_valtrain_batch(area_id, batch_size=8, immean=None):
     fn_im = FMT_VALTRAIN_MUL_STORE.format(prefix)
     fn_mask = FMT_VALTRAIN_MASK_STORE.format(prefix)
 
+    """
     slice_id_list = []
     for idx, row in df_train.iterrows():
         for slice_pos in range(9):
             slice_id = row.ImageId + '_' + str(slice_pos)
             slice_id_list.append(slice_id)
     np.random.shuffle(slice_id_list)
+    """
+
+    image_id_list = []
+    for idx, row in df_train.iterrows():
+        image_id = row.ImageId
+        image_id_list.append(image_id)
+    np.random.shuffle(image_id_list)
 
     while 1:
-        total_sz = len(slice_id_list)
+        total_sz = len(image_id_list)
         n_batch = int(math.floor(total_sz / batch_size) + 1)
         with tb.open_file(fn_im, 'r') as f_im,\
                 tb.open_file(fn_mask, 'r') as f_mask:
             for i_batch in range(n_batch):
-                target_slice_ids = slice_id_list[
+                target_image_ids = image_id_list[
                     i_batch*batch_size:(i_batch+1)*batch_size
                 ]
-                if len(target_slice_ids) == 0:
+                if len(target_image_ids) == 0:
                     continue
 
                 X_train = []
                 y_train = []
-                for slice_id in target_slice_ids:
-                    im = np.array(f_im.get_node('/' + slice_id))
+                for image_id in target_image_ids:
+                    im = np.array(f_im.get_node('/' + image_id))
                     im = np.swapaxes(im, 0, 2)
                     im = np.swapaxes(im, 1, 2)
                     X_train.append(im)
-                    mask = np.array(f_mask.get_node('/' + slice_id))
+                    mask = np.array(f_mask.get_node('/' + image_id))
                     mask = (mask > 0).astype(np.uint8)
                     y_train.append(mask)
                 X_train = np.array(X_train)
@@ -1172,23 +1176,6 @@ def generate_valtrain_batch(area_id, batch_size=8, immean=None):
                 if immean is not None:
                     X_train = X_train - immean
 
-                print(len(target_slice_ids))
-                print(target_slice_ids)
-                print(target_slice_ids[0])
-
-                print(X_train.shape)
-                print(X_train)
-                image = X_train[0][0]
-                print(image)
-                cv2.imwrite("xnormal.tif", image)
-                print(y_train.shape)
-                print(y_train)
-                image = y_train[0]
-                image = np.squeeze(image)
-                cv2.imwrite("ynormall.tif", image)
-                derp_image2 = (image*255).astype(np.uint8)
-                cv2.imwrite("y255uint8.tif", derp_image2)
-                exit(1)
                 yield (X_train, y_train)
 
 
@@ -1324,23 +1311,23 @@ def get_valtest_data(area_id):
     fn_im = FMT_VALTEST_MUL_STORE.format(prefix)
     with tb.open_file(fn_im, 'r') as f:
         for idx, image_id in enumerate(df_test.ImageId.tolist()):
-            for slice_pos in range(9):
-                slice_id = image_id + '_' + str(slice_pos)
-                im = np.array(f.get_node('/' + slice_id))
-                im = np.swapaxes(im, 0, 2)
-                im = np.swapaxes(im, 1, 2)
-                X_val.append(im)
+            #for slice_pos in range(9):
+                #slice_id = image_id + '_' + str(slice_pos)
+            im = np.array(f.get_node('/' + image_id))
+            im = np.swapaxes(im, 0, 2)
+            im = np.swapaxes(im, 1, 2)
+            X_val.append(im)
     X_val = np.array(X_val)
 
     y_val = []
     fn_mask = FMT_VALTEST_MASK_STORE.format(prefix)
     with tb.open_file(fn_mask, 'r') as f:
         for idx, image_id in enumerate(df_test.ImageId.tolist()):
-            for slice_pos in range(9):
-                slice_id = image_id + '_' + str(slice_pos)
-                mask = np.array(f.get_node('/' + slice_id))
-                mask = (mask > 0.5).astype(np.uint8)
-                y_val.append(mask)
+            #for slice_pos in range(9):
+                #slice_id = image_id + '_' + str(slice_pos)
+             mask = np.array(f.get_node('/' + image_id))
+             mask = (mask > 0.5).astype(np.uint8)
+             y_val.append(mask)
     y_val = np.array(y_val)
     y_val = y_val.reshape((-1, 1, INPUT_SIZE, INPUT_SIZE))
 
