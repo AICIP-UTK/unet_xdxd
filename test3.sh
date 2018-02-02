@@ -25,7 +25,7 @@ source activate py35 && for test_path in $ARGS; do
     # echo ">>>" python v13_2.py testproc $test_path
     # python v13_2.py testproc $test_path
     echo ">>>" python v13_2.py test $test_path
-    python v13_3.py test $test_path
+    python v13_2.py test $test_path
 done
 
 # Merge infenrece results
