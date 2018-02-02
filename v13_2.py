@@ -53,7 +53,7 @@ width = 1300
 height = 1300
 white = 255
 black = 0
-spacing = 1
+spacing = 5
 
 # Generates the lists of coordinate alterations needed to search around a
 # candidate pixel up to a certain spacing away from the candidate pixel
@@ -453,7 +453,7 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
         for image, image_id in zip(images, image_ids):
             binary_image = (image > 0.5).astype(np.uint8)
             binary_image = np.squeeze(binary_image)
-            binary_image = ski_transform.resize(binary_image, (1300,1300))
+            #binary_image = ski_transform.resize(binary_image, (1300,1300))
             cv2.imwrite("/data/output/outputImages/{}.tif".format(image_id),binary_image)
             linestrings = mask2linestrings(binary_image, spacing)
 
@@ -465,8 +465,8 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
                 for linestring in linestrings:
                     line = "{},\"LINESTRING (".format(image_id)
                     for i, coordinate in enumerate(linestring):
-                        # line += "{} {}".format((coordinate[1]/256.0)*1300, (coordinate[0]/256.0)*1300)
-                        line += "{} {}".format(coordinate[1], coordinate[0])
+                        line += "{} {}".format((coordinate[1]/256.0)*1300, (coordinate[0]/256.0)*1300)
+                        #line += "{} {}".format(coordinate[1], coordinate[0])
                         if i != (len(linestring)-1):
                             line += ", "
                         else:
