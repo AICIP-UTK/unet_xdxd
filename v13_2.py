@@ -2106,9 +2106,9 @@ def validate(datapath): # This is the training process
     logger.info("Instantiate U-Net model")
     model = get_unet()
     model_checkpoint = ModelCheckpoint(
-        FMT_VALMODEL_PATH.format(prefix + "_{epoch:02d}"),
+        FMT_VALMODEL_LAST_PATH.format(prefix),
         monitor='val_jaccard_coef_int',
-        save_best_only=False)
+        save_best_only=True)
 
     model_earlystop = EarlyStopping(
         monitor='val_jaccard_coef_int',
@@ -2117,8 +2117,12 @@ def validate(datapath): # This is the training process
         mode='max')
     model_history = History()
 
-    if init_ep >= 1:
+    if os.path.isfile(FMT_VALMODEL_LAST_PATH.format(prefix)):
+        model.load_weights(FMT_VALMODEL_LAST_PATH.format(prefix))
+    elif init_ep >= 1:
         model.load_weights(last_model_path)
+    else:
+        print("No weight/model file found. Training from scratch...")
 
     df_train = pd.read_csv(FMT_VALTRAIN_IMAGELIST_PATH.format(
         prefix=prefix))
@@ -2131,7 +2135,7 @@ def validate(datapath): # This is the training process
         validation_data=(X_val, y_val),
         callbacks=[model_checkpoint, model_earlystop, model_history])
 
-    model.save_weights(FMT_VALMODEL_LAST_PATH.format(prefix))
+    # model.save_weights(FMT_VALMODEL_LAST_PATH.format(prefix))
 
     # Save evaluation history
     pd.DataFrame(model_history.history).to_csv(
