@@ -1182,7 +1182,7 @@ def get_unet():
 
     conv10 = Convolution2D(1, 1, 1, activation='sigmoid')(conv9)
 
-    optimizer = SGD(lr=0.01, momentum=0.9, nesterov=True)
+    optimizer = SGD(lr=0.002, momentum=0.9, nesterov=True)
     model = Model(input=inputs, output=conv10)
     model.compile(optimizer=optimizer,
                   loss='binary_crossentropy',
@@ -2140,7 +2140,7 @@ def validate(datapath): # This is the training process
     model.fit_generator(
         generate_valtrain_batch(area_id, batch_size=3, immean=X_mean),
         samples_per_epoch=len(df_train)*3,
-        nb_epoch=50,
+        nb_epoch=20,
         verbose=1,
         validation_data=(X_val, y_val),
         callbacks=[model_checkpoint, model_earlystop, model_history])
