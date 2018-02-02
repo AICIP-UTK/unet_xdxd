@@ -438,7 +438,67 @@ def skeleton2linestrings(image, spacing):
 from skimage.morphology import dilation, closing, erosion
 from skimage.morphology import disk
 
+
+
+def apply_morpho(image, image_id):
+    disk_size = 5
+    select = np.zeros((disk_size, disk_size))
+    select[disk_size/2, :] = 1
+    select[:, disk_size/2] = 1
+    
+    # Dilation
+    dilated = dilation(pred_values, select)
+
+    # Closing
+    closed = closing(pred_values, select)
+
+    cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_plus.tif".format(image_id, disk_size, "dilated"),dilated)
+    cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_plus.tif".format(image_id, disk_size, "closed"),closed)
+
+
+    disk_size = 10
+    select = np.zeros((disk_size, disk_size))
+    select[disk_size/2-1:disk_size/2+1, :] = 1
+    select[:, disk_size/2-1:disk_size/2+1] = 1
+
+    # Dilation
+    dilated = dilation(pred_values, select)
+
+    # Closing
+    closed = closing(pred_values, select)
+
+    cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_plus.tif".format(image_id, disk_size, "dilated"),dilated)
+    cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_plus.tif".format(image_id, disk_size, "closed"),closed)
+
+
+    disk_size = 20
+    select = np.zeros((disk_size, disk_size))
+    select[disk_size/2-1:disk_size/2+3, :] = 1
+    select[:, disk_size/2-1:disk_size/2+3] = 1
+
+    # Dilation
+    dilated = dilation(pred_values, select)
+
+    # Closing
+    closed = closing(pred_values, select)
+
+    cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_plus.tif".format(image_id, disk_size, "dilated"),dilated)
+    cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_plus.tif".format(image_id, disk_size, "closed"),closed)
+
+    disk_size = 20
+    select = np.ones((disk_size, disk_size))
+
+    # Dilation
+    dilated = dilation(pred_values, select)
+
+    # Closing
+    closed = closing(pred_values, select)
+
+    cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_ones.tif".format(image_id, disk_size, "dilated"),dilated)
+
+
 def mask2linestrings(pred_values, spacing, image_id):
+    """
     disk_size = 5
     select = np.zeros((disk_size, disk_size))
     select[disk_size/2, :] = 1
@@ -496,12 +556,13 @@ def mask2linestrings(pred_values, spacing, image_id):
     cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_ones.tif".format(image_id, disk_size, "dilated"),dilated)
     cv2.imwrite("/data/output/outputImages-morpho/{}_{}_{}_ones.tif".format(image_id, disk_size, "closed"),closed)
     """
+    
+    """
     # Skeletonize the image
     skeletonized = morphology.medial_axis(pred_values)
     skeletonized = skeletonized.astype(np.uint8)
     skeletonized *= 255
     """
-
     # Find the linestrings from the image
     # linestrings = skeleton2linestrings(skeletonized, spacing)
     linestrings = []
@@ -522,6 +583,7 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
             binary_image = np.swapaxes(binary_image, 1, 2)
             binary_image = np.squeeze(binary_image)
             #cv2.imwrite("/data/output/outputImages/{}.tif".format(image_id),binary_image)
+            apply_morpho(binary_image, image_id)
             linestrings = mask2linestrings(binary_image, spacing, image_id)
             """
 

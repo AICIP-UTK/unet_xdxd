@@ -439,14 +439,13 @@ from skimage.morphology import dilation, closing, erosion
 from skimage.morphology import disk
 
 def mask2linestrings(image, spacing, image_id):
-    """
-    disk_size = 5
+    
+    disk_size = 20
     select = disk(disk_size)
 
     # Dilation
     image = dilation(image, select)
-    """
-
+    
     # Skeletonize the image
     skeletonized = morphology.medial_axis(image)
     skeletonized = skeletonized.astype(np.uint8)
@@ -470,7 +469,7 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
             binary_image = np.swapaxes(binary_image, 0, 2)
             binary_image = np.swapaxes(binary_image, 1, 2)
             binary_image = np.squeeze(binary_image)
-            cv2.imwrite("/data/output/outputImages/{}.tif".format(image_id),binary_image)
+            cv2.imwrite("/data/output/outputImages/withDilation/{}.tif".format(image_id),binary_image)
             linestrings = mask2linestrings(binary_image, spacing, image_id)
 
             if len(linestrings) == 0:
