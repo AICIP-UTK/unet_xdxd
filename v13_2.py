@@ -541,9 +541,7 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
 def _internal_test_2(area_id):
     prefix = area_id_to_prefix(area_id)
     save_pred=True
-
-    #TODO: Add option for using the last (best) epoch
-    epoch = 7
+    epoch = 9
 
     # Prediction phase
     logger.info("Prediction phase: {}".format(prefix))
@@ -552,8 +550,18 @@ def _internal_test_2(area_id):
 
     # Predict and Save prediction result
     fn = FMT_TESTPRED_PATH.format(prefix)
-    fn_model = FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')
-    fn_model = fn_model.format(epoch=epoch)
+    #fn_model = FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')
+    #fn_model = fn_model.format(epoch=epoch)
+    
+    if os.path.isfile(FMT_VALMODEL_LAST_PATH.format(prefix)):
+        fn_model = FMT_VALMODEL_LAST_PATH.format(prefix)
+    elif os.path.isfile(FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')):
+        fn_model = FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')
+        fn_model = fn_model.format(epoch=epoch)
+    else:
+        print("ERROR: Trained model not found.")
+        exit(1)
+    
     model = get_unet()
     model.load_weights(fn_model)
 
@@ -583,6 +591,8 @@ def _internal_test_2(area_id):
     image_ids = df_test.index.tolist()
     spacing = 1
 
+    #time_now = time.strftime("%Y%m%d-%H%M%S")
+    #fn_out = FMT_TESTLINE_PATH.format(prefix +'_'+ time_now +'_')
     fn_out = FMT_TESTLINE_PATH.format(prefix)
     write_csv_predict(y_pred, image_ids, spacing, fn_out)
 
@@ -2130,7 +2140,7 @@ def validate(datapath): # This is the training process
     model.fit_generator(
         generate_valtrain_batch(area_id, batch_size=3, immean=X_mean),
         samples_per_epoch=len(df_train)*3,
-        nb_epoch=10,
+        nb_epoch=50,
         verbose=1,
         validation_data=(X_val, y_val),
         callbacks=[model_checkpoint, model_earlystop, model_history])
