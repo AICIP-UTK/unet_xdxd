@@ -452,6 +452,7 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
         for image, image_id in zip(images, image_ids):
             binary_image = (image > 0.5).astype(np.uint8)
             binary_image = np.squeeze(binary_image)
+            binary_image = skimage.transform.resize(binary_image, (1300,1300))
             cv2.imwrite("/data/output/outputImages/{}.tif".format(image_id),binary_image)
             linestrings = mask2linestrings(binary_image, spacing)
 
@@ -463,7 +464,8 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
                 for linestring in linestrings:
                     line = "{},\"LINESTRING (".format(image_id)
                     for i, coordinate in enumerate(linestring):
-                        line += "{} {}".format((coordinate[1]/256.0)*1300, (coordinate[0]/256.0)*1300)
+                        # line += "{} {}".format((coordinate[1]/256.0)*1300, (coordinate[0]/256.0)*1300)
+                        line += "{} {}".format(coordinate[1], coordinate[0])
                         if i != (len(linestring)-1):
                             line += ", "
                         else:
@@ -552,7 +554,7 @@ def _internal_test_2(area_id):
     fn = FMT_TESTPRED_PATH.format(prefix)
     #fn_model = FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')
     #fn_model = fn_model.format(epoch=epoch)
-    
+
     if os.path.isfile(FMT_VALMODEL_LAST_PATH.format(prefix)):
         fn_model = FMT_VALMODEL_LAST_PATH.format(prefix)
     elif os.path.isfile(FMT_VALMODEL_PATH.format(prefix + '_{epoch:02d}')):
@@ -561,7 +563,7 @@ def _internal_test_2(area_id):
     else:
         print("ERROR: Trained model not found.")
         exit(1)
-    
+
     model = get_unet()
     model.load_weights(fn_model)
 
