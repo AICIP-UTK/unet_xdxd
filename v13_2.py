@@ -38,6 +38,7 @@ import rasterio.features
 import shapely.wkt
 import shapely.ops
 import shapely.geometry
+import skimage as ski
 
 #Added: Jan 30th: mask2linestrings.
 import argparse
@@ -452,7 +453,7 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
         for image, image_id in zip(images, image_ids):
             binary_image = (image > 0.5).astype(np.uint8)
             binary_image = np.squeeze(binary_image)
-            binary_image = skimage.transform.resize(binary_image, (1300,1300))
+            binary_image = ski.transform.resize(binary_image, (1300,1300))
             cv2.imwrite("/data/output/outputImages/{}.tif".format(image_id),binary_image)
             linestrings = mask2linestrings(binary_image, spacing)
 
