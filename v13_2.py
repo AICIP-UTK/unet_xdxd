@@ -452,7 +452,7 @@ def write_csv_predict(images, image_ids, spacing, csv_filename):
         for image, image_id in zip(images, image_ids):
             binary_image = (image > 0.5).astype(np.uint8)
             binary_image = np.squeeze(binary_image)
-            cv2.imwrite("./outputImages/{}.tif".format(image_id),binary_image)
+            cv2.imwrite("/data/output/outputImages/{}.tif".format(image_id),binary_image)
             linestrings = mask2linestrings(binary_image, spacing)
 
             if len(linestrings) == 0:
@@ -543,7 +543,7 @@ def _internal_test_2(area_id):
     save_pred=True
 
     #TODO: Add option for using the last (best) epoch
-    epoch = 1
+    epoch = 7
 
     # Prediction phase
     logger.info("Prediction phase: {}".format(prefix))
@@ -2124,8 +2124,8 @@ def validate(datapath): # This is the training process
         prefix=prefix))
     logger.info("Fit")
     model.fit_generator(
-        generate_valtrain_batch(area_id, batch_size=5, immean=X_mean),
-        samples_per_epoch=len(df_train),
+        generate_valtrain_batch(area_id, batch_size=3, immean=X_mean),
+        samples_per_epoch=len(df_train)*3,
         nb_epoch=10,
         verbose=1,
         validation_data=(X_val, y_val),
